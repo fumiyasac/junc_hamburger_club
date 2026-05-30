@@ -1,0 +1,600 @@
+openapi: 3.0.3
+info:
+  title: JUNC Hamburger Club - Admin API
+  description: |
+    JUNC Hamburger Club の管理者向け REST API です。
+    ダッシュボード、バーガー管理、注文管理、ユーザー管理を提供します。
+
+    管理者認証には JWT Bearer トークンが必要です。
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080/api/v1/admin
+    description: Local development
+
+tags:
+  - name: Auth
+    description: 管理者認証
+  - name: Dashboard
+    description: ダッシュボード統計
+  - name: Burgers
+    description: バーガー管理 (CRUD)
+  - name: Orders
+    description: 注文管理・ステータス更新
+  - name: Users
+    description: ユーザー管理
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AdminLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "admin@junc-hamburger.com"
+        password:
+          type: string
+          example: "adminpassword"
+
+    AdminLoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+            email:
+              type: string
+
+    DashboardStats:
+      type: object
+      properties:
+        totalOrders:
+          type: integer
+          example: 1234
+        todayOrders:
+          type: integer
+          example: 42
+        totalRevenue:
+          type: number
+          example: 1234567.00
+        todayRevenue:
+          type: number
+          example: 45678.00
+        activeOrders:
+          type: integer
+          example: 8
+        totalUsers:
+          type: integer
+          example: 567
+        totalBurgers:
+          type: integer
+          example: 20
+        popularBurgers:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              count:
+                type: integer
+
+    Burger:
+      type: object
+      properties:
+        id:
+          type: integer
+        categoryId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        imageUrl:
+          type: string
+          nullable: true
+        rating:
+          type: number
+        reviewCount:
+          type: integer
+        isPopular:
+          type: boolean
+        isAvailable:
+          type: boolean
+        calories:
+          type: integer
+          nullable: true
+        ingredients:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    CreateBurgerRequest:
+      type: object
+      required: [categoryId, name, description, price]
+      properties:
+        categoryId:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "新作バーガー"
+        description:
+          type: string
+        price:
+          type: number
+          example: 1200
+        imageUrl:
+          type: string
+          nullable: true
+        isPopular:
+          type: boolean
+          default: false
+        calories:
+          type: integer
+          nullable: true
+        ingredients:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        userName:
+          type: string
+        userEmail:
+          type: string
+        orderNumber:
+          type: string
+          example: "JUNC-20260525-0042"
+        status:
+          type: string
+          enum: [received, preparing, ready, completed, cancelled]
+        totalAmount:
+          type: number
+        taxAmount:
+          type: number
+        notes:
+          type: string
+          nullable: true
+        estimatedReadyAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              burgerId:
+                type: integer
+              burgerName:
+                type: string
+              quantity:
+                type: integer
+              unitPrice:
+                type: number
+              subtotal:
+                type: number
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        profileImageUrl:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+
+paths:
+  # ── Auth ─────────────────────────────────────────────────────────────
+  /login:
+    post:
+      tags: [Auth]
+      summary: 管理者ログイン
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLoginRequest'
+      responses:
+        '200':
+          description: ログイン成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLoginResponse'
+        '401':
+          description: 認証失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ── Dashboard ─────────────────────────────────────────────────────────
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      summary: ダッシュボード統計取得
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 統計データ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DashboardStats'
+
+  # ── Burgers ──────────────────────────────────────────────────────────
+  /burgers:
+    get:
+      tags: [Burgers]
+      summary: バーガー一覧 (管理)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: バーガー一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      burgers:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Burger'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+    post:
+      tags: [Burgers]
+      summary: バーガー新規作成
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBurgerRequest'
+      responses:
+        '201':
+          description: 作成成功
+
+  /burgers/{id}:
+    get:
+      tags: [Burgers]
+      summary: バーガー詳細
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: バーガー詳細
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Burger'
+    put:
+      tags: [Burgers]
+      summary: バーガー更新
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBurgerRequest'
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      tags: [Burgers]
+      summary: バーガー削除
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 削除成功
+
+  /burgers/{id}/availability:
+    put:
+      tags: [Burgers]
+      summary: 販売可否の切り替え
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 切り替え成功
+
+  # ── Orders ───────────────────────────────────────────────────────────
+  /orders:
+    get:
+      tags: [Orders]
+      summary: 注文一覧 (管理)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [received, preparing, ready, completed, cancelled]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 注文一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      orders:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Order'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      summary: 注文詳細
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 注文詳細
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Order'
+
+  /orders/{id}/status:
+    put:
+      tags: [Orders]
+      summary: 注文ステータス更新
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [received, preparing, ready, completed, cancelled]
+      responses:
+        '200':
+          description: 更新成功
+
+  # ── Users ─────────────────────────────────────────────────────────────
+  /users:
+    get:
+      tags: [Users]
+      summary: ユーザー一覧
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: ユーザー一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      users:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/User'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: ユーザー詳細
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: ユーザー詳細
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+
+  /users/{id}/toggle:
+    put:
+      tags: [Users]
+      summary: ユーザーの有効/無効切り替え
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 切り替え成功

@@ -1,0 +1,722 @@
+openapi: 3.0.3
+info:
+  title: JUNC Hamburger Club - User API
+  description: |
+    JUNC Hamburger Club のユーザー向け REST API です。
+    認証、バーガー取得、カート管理、注文処理を提供します。
+  version: 1.0.0
+  contact:
+    name: JUNC Dev Team
+    email: dev@junc-hamburger.com
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development
+
+tags:
+  - name: Auth
+    description: 認証 (登録・ログイン)
+  - name: Burgers
+    description: バーガー・カテゴリ情報
+  - name: Cart
+    description: カート管理
+  - name: Orders
+    description: 注文管理
+  - name: Users
+    description: ユーザープロフィール
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        name:
+          type: string
+          example: "田中 太郎"
+        email:
+          type: string
+          format: email
+          example: "tanaka@example.com"
+        profileImageUrl:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIs..."
+            user:
+              $ref: '#/components/schemas/User'
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        name:
+          type: string
+          example: "クラシック"
+        emoji:
+          type: string
+          example: "🍔"
+        description:
+          type: string
+          nullable: true
+        displayOrder:
+          type: integer
+          example: 1
+
+    Burger:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        categoryId:
+          type: string
+          example: "1"
+        categoryName:
+          type: string
+          example: "クラシック"
+        categoryEmoji:
+          type: string
+          example: "🍔"
+        name:
+          type: string
+          example: "JUNCクラシックバーガー"
+        description:
+          type: string
+        price:
+          type: number
+          format: float
+          example: 980
+        imageUrl:
+          type: string
+          nullable: true
+        rating:
+          type: number
+          format: float
+          example: 4.5
+        reviewCount:
+          type: integer
+          example: 234
+        isPopular:
+          type: boolean
+          example: true
+        isAvailable:
+          type: boolean
+          example: true
+        calories:
+          type: integer
+          nullable: true
+          example: 520
+        ingredients:
+          type: array
+          items:
+            type: string
+          example: ["ビーフパティ (150g)", "ブリオッシュバンズ"]
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["定番", "人気"]
+
+    CartItem:
+      type: object
+      properties:
+        id:
+          type: string
+        burgerId:
+          type: string
+        burgerName:
+          type: string
+        burgerPrice:
+          type: number
+        burgerImageUrl:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+        subtotal:
+          type: number
+
+    Cart:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        subtotal:
+          type: number
+          example: 2960
+        tax:
+          type: number
+          example: 296
+        total:
+          type: number
+          example: 3256
+
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: string
+        burgerId:
+          type: string
+        burgerName:
+          type: string
+        burgerImageUrl:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+        unitPrice:
+          type: number
+        subtotal:
+          type: number
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        orderNumber:
+          type: string
+          example: "JUNC-20260525-0042"
+        status:
+          type: string
+          enum: [received, preparing, ready, completed, cancelled]
+          example: "received"
+        totalAmount:
+          type: number
+          example: 3256
+        taxAmount:
+          type: number
+          example: 296
+        notes:
+          type: string
+          nullable: true
+        estimatedReadyAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        pages:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+
+paths:
+  # ── Auth ─────────────────────────────────────────────────────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: ユーザー登録
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                  example: "田中 太郎"
+                email:
+                  type: string
+                  format: email
+                  example: "tanaka@example.com"
+                password:
+                  type: string
+                  minLength: 8
+                  example: "password123"
+      responses:
+        '201':
+          description: 登録成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '409':
+          description: メールアドレス重複
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: ログイン
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: ログイン成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: 認証失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ── Burgers ──────────────────────────────────────────────────────────
+  /burgers:
+    get:
+      tags: [Burgers]
+      summary: バーガー一覧取得
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: integer
+          description: カテゴリIDでフィルタ
+        - name: popular
+          in: query
+          schema:
+            type: boolean
+          description: 人気商品のみ
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: 名前・説明で検索
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      burgers:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Burger'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+
+  /burgers/search:
+    get:
+      tags: [Burgers]
+      summary: バーガー全文検索
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 検索キーワード
+      responses:
+        '200':
+          description: 検索結果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Burger'
+
+  /burgers/categories:
+    get:
+      tags: [Burgers]
+      summary: カテゴリ一覧取得
+      responses:
+        '200':
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+
+  /burgers/{id}:
+    get:
+      tags: [Burgers]
+      summary: バーガー詳細取得
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Burger'
+        '404':
+          description: 見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ── Cart ─────────────────────────────────────────────────────────────
+  /cart:
+    get:
+      tags: [Cart]
+      summary: カート取得
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: カート内容
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Cart'
+    post:
+      tags: [Cart]
+      summary: カートにアイテム追加
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [burgerId]
+              properties:
+                burgerId:
+                  type: string
+                  example: "1"
+                quantity:
+                  type: integer
+                  default: 1
+                  minimum: 1
+      responses:
+        '201':
+          description: 追加成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/CartItem'
+    delete:
+      tags: [Cart]
+      summary: カート全削除
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: クリア成功
+
+  /cart/{itemId}:
+    put:
+      tags: [Cart]
+      summary: カートアイテム数量更新
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity]
+              properties:
+                quantity:
+                  type: integer
+                  minimum: 0
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      tags: [Cart]
+      summary: カートからアイテム削除
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 削除成功
+
+  # ── Orders ───────────────────────────────────────────────────────────
+  /orders:
+    post:
+      tags: [Orders]
+      summary: 注文作成 (カートから注文)
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes:
+                  type: string
+                  example: "ソース多めでお願いします"
+      responses:
+        '201':
+          description: 注文成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Order'
+        '400':
+          description: カートが空
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags: [Orders]
+      summary: 注文履歴取得
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 注文一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+
+  /orders/{orderId}:
+    get:
+      tags: [Orders]
+      summary: 注文詳細・ステータス取得
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 注文詳細
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Order'
+        '404':
+          description: 見つからない
+
+  /orders/{orderId}/cancel:
+    put:
+      tags: [Orders]
+      summary: 注文キャンセル
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: キャンセル成功
+        '400':
+          description: キャンセル不可状態
+
+  # ── Users ─────────────────────────────────────────────────────────────
+  /users/me:
+    get:
+      tags: [Users]
+      summary: プロフィール取得
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: プロフィール
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+    put:
+      tags: [Users]
+      summary: プロフィール更新
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                profileImageUrl:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      tags: [Users]
+      summary: アカウント削除
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 削除成功
+
+  /users/me/password:
+    put:
+      tags: [Users]
+      summary: パスワード変更
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: 変更成功
+        '401':
+          description: 現在のパスワードが違う

@@ -1,0 +1,75 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+
+import 'core/theme/app_theme.dart';
+import 'core/router/app_router.dart';
+import 'data/models/user.dart';
+import 'viewmodels/auth_viewmodel.dart';
+import 'providers/providers.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ),
+  );
+
+  final prefs = await SharedPreferences.getInstance();
+  final storedUserJson = prefs.getString('user_data');
+  AppUser? storedUser;
+  if (storedUserJson != null) {
+    try {
+      storedUser =
+          AppUser.fromJson(jsonDecode(storedUserJson) as Map<String, dynamic>);
+    } catch (_) {}
+  }
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        // Pre-warm user repository with stored user data
+        userRepositoryProvider,
+      ],
+      child: _App(initialUser: storedUser),
+    ),
+  );
+}
+
+class _App extends ConsumerStatefulWidget {
+  final AppUser? initialUser;
+
+  const _App({this.initialUser});
+
+  @override
+  ConsumerState<_App> createState() => _AppState();
+}
+
+class _AppState extends ConsumerState<_App> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialUser != null) {
+      // Set auth state on first frame
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(authViewModelProvider.notifier).setLoggedIn(widget.initialUser!);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final router = ref.watch(routerProvider);
+
+    return MaterialApp.router(
+      title: 'JUNC Hamburger Club',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      routerConfig: router,
+    );
+  }
+}
