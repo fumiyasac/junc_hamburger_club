@@ -28,10 +28,10 @@ Flutter モバイルアプリ・TypeScript/Go バックエンド・Next.js Web �
 | コンポーネント | 内容 | ポート |
 |---|---|---|
 | **Flutter モバイルアプリ** | ユーザー向けオーダーアプリ (iOS/Android) | — |
-| **TypeScript User API** | ユーザー向け REST API (Express.js) | 3000 |
+| **TypeScript User API** | ユーザー向け REST API (Express.js) | 3100 (host) → 3000 (container) |
 | **Go Admin API** | 管理者向け REST API (Gin) | 8080 |
-| **MySQL** | データベース | 3306 |
-| **Next.js Web** | 公開サイト + 管理画面 | 3001 |
+| **MySQL** | データベース | 3307 (host) → 3306 (container) |
+| **Next.js Web** | 公開サイト + 管理画面 | 3002 |
 
 ### 実装済み機能
 
@@ -241,17 +241,17 @@ docker compose ps
 正常起動時の出力例:
 
 ```
-NAME              STATUS          PORTS
-junc_mysql        running (healthy)   0.0.0.0:3306->3306/tcp
-junc_user_api     running         0.0.0.0:3000->3000/tcp
-junc_admin_api    running         0.0.0.0:8080->8080/tcp
+NAME             STATUS                    PORTS
+junc_mysql       Up (healthy)              0.0.0.0:3307->3306/tcp
+junc_user_api    Up                        0.0.0.0:3100->3000/tcp
+junc_admin_api   Up                        0.0.0.0:8080->8080/tcp
 ```
 
 ### 6-3. 動作確認
 
 ```bash
 # User API ヘルスチェック
-curl http://localhost:3000/health
+curl http://localhost:3100/health
 # => {"status":"ok","service":"junc-user-api"}
 
 # Admin API ヘルスチェック
@@ -259,7 +259,7 @@ curl http://localhost:8080/health
 # => {"status":"ok","service":"junc-admin-api"}
 
 # バーガー一覧 (認証不要)
-curl http://localhost:3000/api/v1/burgers | jq '.data.burgers | length'
+curl http://localhost:3100/api/v1/burgers | jq '.data.burgers | length'
 # => 20
 ```
 
@@ -314,7 +314,7 @@ cp .env.local.example .env.local
 `.env.local` の内容:
 
 ```dotenv
-NEXT_PUBLIC_USER_API_URL=http://localhost:3000/api/v1
+NEXT_PUBLIC_USER_API_URL=http://localhost:3100/api/v1
 NEXT_PUBLIC_ADMIN_API_URL=http://localhost:8080/api/v1/admin
 ```
 
@@ -322,28 +322,28 @@ NEXT_PUBLIC_ADMIN_API_URL=http://localhost:8080/api/v1/admin
 
 ```bash
 npm run dev
-# => http://localhost:3001 で起動
+# => http://localhost:3002 で起動
 ```
 
 ### 7-4. 各ページへのアクセス
 
 | URL | 内容 |
 |---|---|
-| `http://localhost:3001` | トップページ |
-| `http://localhost:3001/menu` | メニュー一覧 |
-| `http://localhost:3001/menu/:id` | バーガー詳細 |
-| `http://localhost:3001/auth` | ログイン / 新規登録 |
-| `http://localhost:3001/admin/login` | 管理者ログイン |
-| `http://localhost:3001/admin/dashboard` | 管理ダッシュボード |
-| `http://localhost:3001/admin/orders` | 注文管理 |
-| `http://localhost:3001/admin/burgers` | バーガー管理 |
-| `http://localhost:3001/admin/users` | ユーザー管理 |
+| `http://localhost:3002` | トップページ |
+| `http://localhost:3002/menu` | メニュー一覧 |
+| `http://localhost:3002/menu/:id` | バーガー詳細 |
+| `http://localhost:3002/auth` | ログイン / 新規登録 |
+| `http://localhost:3002/admin/login` | 管理者ログイン |
+| `http://localhost:3002/admin/dashboard` | 管理ダッシュボード |
+| `http://localhost:3002/admin/orders` | 注文管理 |
+| `http://localhost:3002/admin/burgers` | バーガー管理 |
+| `http://localhost:3002/admin/users` | ユーザー管理 |
 
 ### 7-5. プロダクションビルド
 
 ```bash
 npm run build
-npm run start  # ポート 3001 で本番起動
+npm run start  # ポート 3002 で本番起動
 ```
 
 ---
@@ -381,10 +381,12 @@ flutter devices
 出力例:
 
 ```
-3 connected devices:
-iPhone 16 Pro (mobile)           • 00008140-... • ios           • iOS 18.x
-sdk gphone64 arm64 (mobile)      • emulator-5554 • android-arm64 • Android 14
-macOS (desktop)                  • macos         • darwin-arm64  • macOS 15.x
+5 connected devices:
+sdk gphone64 arm64 (mobile)  • emulator-5554  • android-arm64   • Android 13 (API 33) (emulator)
+sdk gphone64 arm64 (mobile)  • emulator-5556  • android-arm64   • Android 16 (API 36) (emulator)
+iPhone 17 Pro (mobile)       • <UUID>          • ios             • iOS 26.x (simulator)
+macOS (desktop)              • macos           • darwin-arm64    • macOS 26.x
+Chrome (web)                 • chrome          • web-javascript  • Google Chrome 148.x
 ```
 
 ### 8-4. アプリの起動
@@ -394,8 +396,11 @@ macOS (desktop)                  • macos         • darwin-arm64  • macOS 1
 flutter run
 
 # デバイスを明示指定
-flutter run -d "iPhone 16 Pro"
-flutter run -d emulator-5554
+# iOS シミュレーター (API_HOST=localhost を指定)
+flutter run -d "iPhone 17 Pro Max" --dart-define=API_HOST=localhost
+
+# Android エミュレーター (API_HOST=10.0.2.2 を指定)
+flutter run -d emulator-5556 --dart-define=API_HOST=10.0.2.2  # Pixel 9 (Android 16 / API 36)
 
 # リリースモードで起動 (本番に近いパフォーマンス確認)
 flutter run --release
@@ -615,12 +620,14 @@ sdkmanager "build-tools;34.0.0" "platforms;android-34"
 ```bash
 # 利用可能な AVD 一覧
 emulator -list-avds
+# => Pixel_5_API_33
+# => Pixel_9
 
-# AVD を起動 (バックグラウンドで)
-emulator -avd Pixel_9_API_34 &
+# AVD を起動 (バックグラウンドで) ※最新版 Pixel_9 (Android 16 / API 36) を推奨
+flutter emulators --launch Pixel_9
 
-# アプリを起動
-flutter run -d emulator-5554
+# アプリを起動 (Pixel_9 は emulator-5556 として認識される)
+flutter run -d emulator-5556
 ```
 
 または Android Studio から:
@@ -733,16 +740,21 @@ flutter build appbundle --release
 Android エミュレーターから `localhost` はエミュレーター自身を指すため、**ホスト PC の API には接続できません**。
 
 ```dart
-// lib/core/constants/api_constants.dart を以下のように修正
-static const String baseUrl = 'http://10.0.2.2:3000';   // エミュレーター用
-// static const String baseUrl = 'http://localhost:3000'; // iOS シミュレーター用
+// lib/core/constants/api_constants.dart
+// API_HOST を --dart-define で切り替え可能。デフォルトは 10.0.2.2 (Android エミュレーター用)
+static const String _host = String.fromEnvironment('API_HOST', defaultValue: '10.0.2.2');
+static const String baseUrl = 'http://$_host:3100';
+static const String adminBaseUrl = 'http://$_host:8080';
 ```
 
-または環境変数で切り替え:
+起動コマンド:
 
 ```bash
-# エミュレーター向けに起動
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
+# Android エミュレーター
+flutter run -d emulator-5556 --dart-define=API_HOST=10.0.2.2
+
+# iOS シミュレーター
+flutter run -d "iPhone 17 Pro Max" --dart-define=API_HOST=localhost
 ```
 
 ---
@@ -754,7 +766,7 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
 バックエンド起動後にブラウザでアクセス:
 
 ```
-http://localhost:3000/api-docs
+http://localhost:3100/api-docs
 ```
 
 主要エンドポイント:
@@ -799,27 +811,27 @@ OpenAPI 仕様書: `junc_hamburger_club_backend/admin-api/docs/swagger.yaml`
 
 ```bash
 # 1. 会員登録
-curl -X POST http://localhost:3000/api/v1/auth/register \
+curl -X POST http://localhost:3100/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"name":"テストユーザー","email":"test@example.com","password":"password123"}' \
   | jq
 
 # 2. ログインしてトークン取得
-TOKEN=$(curl -s -X POST http://localhost:3000/api/v1/auth/login \
+TOKEN=$(curl -s -X POST http://localhost:3100/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","password":"password123"}' \
   | jq -r '.data.token')
 echo "TOKEN: $TOKEN"
 
 # 3. カートにバーガーを追加
-curl -X POST http://localhost:3000/api/v1/cart \
+curl -X POST http://localhost:3100/api/v1/cart \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"burgerId":"1","quantity":2}' \
   | jq
 
 # 4. 注文作成
-curl -X POST http://localhost:3000/api/v1/orders \
+curl -X POST http://localhost:3100/api/v1/orders \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"notes":"ソース多めでお願いします"}' \
@@ -986,11 +998,11 @@ Android エミュレーターから localhost にアクセスするには `10.0.
 
 ```bash
 # 一時的な確認
-adb reverse tcp:3000 tcp:3000
+adb reverse tcp:3100 tcp:3100
 adb reverse tcp:8080 tcp:8080
 
 # これで localhost が使えるようになる
-flutter run -d emulator-5554
+flutter run -d emulator-5556
 ```
 
 ---

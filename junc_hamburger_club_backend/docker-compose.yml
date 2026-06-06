@@ -11,7 +11,7 @@ services:
       MYSQL_USER: ${MYSQL_USER:-junc_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-junc_password}
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init-db:/docker-entrypoint-initdb.d:ro
@@ -40,7 +40,7 @@ services:
       DB_PASSWORD: ${MYSQL_PASSWORD:-junc_password}
       JWT_SECRET: ${JWT_SECRET:-supersecretjwtsecret}
     ports:
-      - "3000:3000"
+      - "3100:3000"
     depends_on:
       mysql:
         condition: service_healthy

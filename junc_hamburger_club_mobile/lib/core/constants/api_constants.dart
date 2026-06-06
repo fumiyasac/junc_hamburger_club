@@ -1,6 +1,10 @@
 class ApiConstants {
-  static const String baseUrl = 'http://localhost:3000';
-  static const String adminBaseUrl = 'http://localhost:8080';
+  static const String _host = String.fromEnvironment(
+    'API_HOST',
+    defaultValue: '10.0.2.2',
+  );
+  static const String baseUrl = 'http://$_host:3100';
+  static const String adminBaseUrl = 'http://$_host:8080';
 
   static const String register = '/api/auth/register';
   static const String login = '/api/auth/login';
