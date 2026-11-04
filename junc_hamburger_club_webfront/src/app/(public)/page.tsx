@@ -82,9 +82,9 @@ export default async function HomePage() {
       )}
 
       {/* CTA */}
-      <section className="bg-secondary py-16 px-4">
+      <section className="bg-primary-light py-16 px-4 border-y-4 border-primary">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl font-black mb-4">アプリで注文しよう</h2>
+          <h2 className="text-3xl font-black mb-4 text-primary-dark">アプリで注文しよう</h2>
           <p className="text-gray-700 mb-6">
             モバイルアプリをダウンロードして、どこでも手軽に注文。
             待ち時間をリアルタイムで確認できます。

@@ -5,11 +5,11 @@
 @tailwind utilities;
 
 :root {
-  --color-primary: #C8102E;
-  --color-secondary: #F5B700;
-  --color-accent: #4F8A3F;
-  --color-bun: #B06B2A;
-  --color-background: #FFF8EC;
+  --color-primary: #EA580C;
+  --color-secondary: #DC2626;
+  --color-accent: #65A30D;
+  --color-bun: #92400E;
+  --color-background: #FFF8F1;
 }
 
 body {
