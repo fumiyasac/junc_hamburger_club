@@ -1,6 +1,9 @@
 -- JUNC Hamburger Club Seed Data
 -- MySQL 8.0
 
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+
 USE junc_hamburger;
 
 -- ────────────────────────────────────────
