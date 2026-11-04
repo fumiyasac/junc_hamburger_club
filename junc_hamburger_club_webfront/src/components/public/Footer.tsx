@@ -1,6 +1,6 @@
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 text-gray-300 py-10 px-4 mt-auto">
+    <footer className="bg-bun-dark text-amber-100 py-10 px-4 mt-auto border-t-8 border-secondary">
       <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           <div>
@@ -8,7 +8,7 @@ export default function Footer() {
               <span>🍔</span>
               <span>JUNC Hamburger Club</span>
             </div>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-amber-200/80">
               こだわりの素材で作る、本物のハンバーガーをあなたへ。
             </p>
           </div>
@@ -28,7 +28,7 @@ export default function Footer() {
             </ul>
           </div>
         </div>
-        <div className="border-t border-gray-700 pt-6 text-sm text-center text-gray-500">
+        <div className="border-t border-amber-200/30 pt-6 text-sm text-center text-amber-200/70">
           © 2026 JUNC Hamburger Club. All rights reserved.
         </div>
       </div>

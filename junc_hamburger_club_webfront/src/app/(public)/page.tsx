@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { burgerApi } from '@/lib/api'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, resolveBurgerImage } from '@/lib/utils'
 import { Burger } from '@/lib/types'
 
 export const revalidate = 60
@@ -21,7 +21,7 @@ export default async function HomePage() {
   return (
     <div>
       {/* Hero */}
-      <section className="bg-gradient-to-br from-primary to-primary-dark text-white py-20 px-4">
+      <section className="bg-gradient-to-br from-primary via-primary-dark to-bun-dark text-white py-20 px-4 border-b-8 border-secondary">
         <div className="max-w-4xl mx-auto text-center">
           <div className="text-6xl mb-4">🍔</div>
           <h1 className="text-4xl md:text-6xl font-black mb-4">
@@ -107,9 +107,9 @@ function BurgerCard({ burger }: { burger: Burger }) {
   return (
     <Link href={`/menu/${burger.id}`} className="card hover:shadow-lg transition-shadow group">
       <div className="relative h-48 bg-gray-100">
-        {burger.imageUrl ? (
+        {resolveBurgerImage(burger.id, burger.imageUrl) ? (
           <Image
-            src={burger.imageUrl}
+            src={resolveBurgerImage(burger.id, burger.imageUrl)!}
             alt={burger.name}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-300"

@@ -2,6 +2,15 @@ export function formatPrice(yen: number): string {
   return `¥${yen.toLocaleString('ja-JP')}`
 }
 
+// Local burger thumbnails live in /public/burgers/{id}.jpg (ids 1-20).
+// Falls back to the API-provided imageUrl if no local asset exists.
+const LOCAL_BURGER_IDS = new Set(Array.from({ length: 20 }, (_, i) => String(i + 1)))
+export function resolveBurgerImage(id: string | number, fallback?: string | null): string | null {
+  const key = String(id)
+  if (LOCAL_BURGER_IDS.has(key)) return `/burgers/${key}.jpg`
+  return fallback ?? null
+}
+
 export function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('ja-JP', {
     year: 'numeric', month: 'long', day: 'numeric',

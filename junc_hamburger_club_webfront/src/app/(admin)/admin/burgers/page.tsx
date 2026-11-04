@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { useAdminAuth } from '@/hooks/useAdminAuth'
 import { adminBurgerApi } from '@/lib/api'
 import { Burger } from '@/lib/types'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, resolveBurgerImage } from '@/lib/utils'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 
 export default function AdminBurgersPage() {
@@ -87,8 +87,8 @@ export default function AdminBurgersPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                          {burger.imageUrl ? (
-                            <Image src={burger.imageUrl} alt={burger.name} fill className="object-cover" />
+                          {resolveBurgerImage(burger.id, burger.imageUrl) ? (
+                            <Image src={resolveBurgerImage(burger.id, burger.imageUrl)!} alt={burger.name} fill className="object-cover" />
                           ) : (
                             <div className="flex items-center justify-center h-full text-lg">🍔</div>
                           )}
