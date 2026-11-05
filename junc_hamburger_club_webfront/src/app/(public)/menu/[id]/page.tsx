@@ -2,7 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { burgerApi } from '@/lib/api'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, resolveBurgerImage } from '@/lib/utils'
 
 export const revalidate = 60
 
@@ -23,8 +23,8 @@ export default async function BurgerDetailPage({ params }: { params: Promise<{ i
 
       <div className="card overflow-hidden mt-4">
         <div className="relative h-72 bg-gray-100">
-          {burger.imageUrl ? (
-            <Image src={burger.imageUrl} alt={burger.name} fill className="object-cover" />
+          {resolveBurgerImage(burger.id, burger.imageUrl) ? (
+            <Image src={resolveBurgerImage(burger.id, burger.imageUrl)!} alt={burger.name} fill className="object-cover" />
           ) : (
             <div className="flex items-center justify-center h-full text-7xl">🍔</div>
           )}
