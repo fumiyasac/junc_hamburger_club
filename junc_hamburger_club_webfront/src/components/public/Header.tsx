@@ -15,7 +15,7 @@ export default function Header() {
   const { user, logout } = useAuth()
 
   return (
-    <header className="bg-white shadow-sm sticky top-0 z-50 border-b-4 border-secondary">
+    <header className="bg-white shadow-sm sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 font-black text-xl text-primary">
           <span>🍔</span>

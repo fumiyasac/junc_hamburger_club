@@ -21,7 +21,7 @@ export default async function HomePage() {
   return (
     <div>
       {/* Hero */}
-      <section className="bg-gradient-to-br from-primary via-primary-dark to-bun-dark text-white py-20 px-4 border-b-8 border-secondary">
+      <section className="bg-gradient-to-br from-primary to-primary-dark text-white py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <div className="text-6xl mb-4">🍔</div>
           <h1 className="text-4xl md:text-6xl font-black mb-4">
@@ -82,9 +82,9 @@ export default async function HomePage() {
       )}
 
       {/* CTA */}
-      <section className="bg-primary-light py-16 px-4 border-y-4 border-primary">
+      <section className="bg-secondary py-16 px-4">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl font-black mb-4 text-primary-dark">アプリで注文しよう</h2>
+          <h2 className="text-3xl font-black mb-4">アプリで注文しよう</h2>
           <p className="text-gray-700 mb-6">
             モバイルアプリをダウンロードして、どこでも手軽に注文。
             待ち時間をリアルタイムで確認できます。
