@@ -27,12 +27,13 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: junc_hamburger_club_backend/user-api/package-lock.json
+          node-version: '22.23.4'
+          # NOTE: package-lock.json が未コミットのため npm cache は無効化している。
+          # package-lock.json をコミットしたら `cache: 'npm'` と `cache-dependency-path` を有効化し、
+          # 下の `npm install` を `npm ci` に差し替えること。
 
-      - name: npm ci
-        run: npm ci
+      - name: npm install
+        run: npm install
 
       - name: Type check (tsc --noEmit)
         run: npx tsc --noEmit
