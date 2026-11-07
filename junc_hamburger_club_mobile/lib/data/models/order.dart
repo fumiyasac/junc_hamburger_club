@@ -1,5 +1,3 @@
-import 'burger.dart';
-
 enum OrderStatus {
   received,
   preparing,
@@ -55,16 +53,21 @@ enum OrderStatus {
   }
 }
 
+/// OrderItem は API の /orders レスポンスの items[] 形状に合わせたフラット構造。
 class OrderItem {
   final String id;
-  final Burger burger;
+  final String burgerId;
+  final String burgerName;
+  final String? burgerImageUrl;
   final int quantity;
   final double unitPrice;
   final double subtotal;
 
   const OrderItem({
     required this.id,
-    required this.burger,
+    required this.burgerId,
+    required this.burgerName,
+    this.burgerImageUrl,
     required this.quantity,
     required this.unitPrice,
     required this.subtotal,
@@ -73,9 +76,11 @@ class OrderItem {
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
       id: json['id'].toString(),
-      burger: Burger.fromJson(json['burger'] as Map<String, dynamic>),
+      burgerId: json['burgerId'].toString(),
+      burgerName: json['burgerName'] as String,
+      burgerImageUrl: json['burgerImageUrl'] as String?,
       quantity: json['quantity'] as int,
-      unitPrice: (json['unit_price'] as num).toDouble(),
+      unitPrice: (json['unitPrice'] as num).toDouble(),
       subtotal: (json['subtotal'] as num).toDouble(),
     );
   }
@@ -83,9 +88,11 @@ class OrderItem {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'burger': burger.toJson(),
+      'burgerId': burgerId,
+      'burgerName': burgerName,
+      'burgerImageUrl': burgerImageUrl,
       'quantity': quantity,
-      'unit_price': unitPrice,
+      'unitPrice': unitPrice,
       'subtotal': subtotal,
     };
   }
@@ -143,16 +150,16 @@ class Order {
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
       id: json['id'].toString(),
-      orderNumber: json['order_number'] as String,
+      orderNumber: json['orderNumber'] as String,
       status: OrderStatus.fromString(json['status'] as String),
       items: (json['items'] as List<dynamic>)
           .map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
           .toList(),
-      totalAmount: (json['total_amount'] as num).toDouble(),
-      taxAmount: (json['tax_amount'] as num).toDouble(),
-      createdAt: DateTime.parse(json['created_at'] as String),
-      estimatedReadyAt: json['estimated_ready_at'] != null
-          ? DateTime.parse(json['estimated_ready_at'] as String)
+      totalAmount: (json['totalAmount'] as num).toDouble(),
+      taxAmount: (json['taxAmount'] as num).toDouble(),
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      estimatedReadyAt: json['estimatedReadyAt'] != null
+          ? DateTime.parse(json['estimatedReadyAt'] as String)
           : null,
       notes: json['notes'] as String?,
     );
@@ -161,13 +168,13 @@ class Order {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'order_number': orderNumber,
+      'orderNumber': orderNumber,
       'status': status.name,
       'items': items.map((e) => e.toJson()).toList(),
-      'total_amount': totalAmount,
-      'tax_amount': taxAmount,
-      'created_at': createdAt.toIso8601String(),
-      'estimated_ready_at': estimatedReadyAt?.toIso8601String(),
+      'totalAmount': totalAmount,
+      'taxAmount': taxAmount,
+      'createdAt': createdAt.toIso8601String(),
+      'estimatedReadyAt': estimatedReadyAt?.toIso8601String(),
       'notes': notes,
     };
   }

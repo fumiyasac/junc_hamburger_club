@@ -40,9 +40,13 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 		users = append(users, u)
 	}
 
+	pages := 0
+	if limit > 0 {
+		pages = (total + limit - 1) / limit
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data":    gin.H{"users": users, "pagination": gin.H{"total": total, "page": page, "limit": limit}},
+		"data":    gin.H{"users": users, "pagination": gin.H{"total": total, "page": page, "limit": limit, "pages": pages}},
 	})
 }
 

@@ -38,9 +38,9 @@ class AppUser {
       id: json['id'].toString(),
       name: json['name'] as String,
       email: json['email'] as String,
-      profileImageUrl: json['profile_image_url'] as String?,
-      isActive: json['is_active'] as bool? ?? true,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      profileImageUrl: json['profileImageUrl'] as String?,
+      isActive: json['isActive'] as bool? ?? true,
+      createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }
 
@@ -49,9 +49,9 @@ class AppUser {
       'id': id,
       'name': name,
       'email': email,
-      'profile_image_url': profileImageUrl,
-      'is_active': isActive,
-      'created_at': createdAt.toIso8601String(),
+      'profileImageUrl': profileImageUrl,
+      'isActive': isActive,
+      'createdAt': createdAt.toIso8601String(),
     };
   }
 }

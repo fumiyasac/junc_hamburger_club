@@ -55,8 +55,15 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// user-api 側 AuthResponse と構造を揃える: data.user に管理者情報を入れる
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data":    gin.H{"token": tokenStr, "email": req.Email},
+		"data": gin.H{
+			"token": tokenStr,
+			"user": gin.H{
+				"id":    "1",
+				"email": req.Email,
+			},
+		},
 	})
 }

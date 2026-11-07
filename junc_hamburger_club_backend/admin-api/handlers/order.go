@@ -56,11 +56,15 @@ func (h *OrderHandler) ListOrders(c *gin.Context) {
 		orders = append(orders, o)
 	}
 
+	pages := 0
+	if limit > 0 {
+		pages = (total + limit - 1) / limit
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
 			"orders":     orders,
-			"pagination": gin.H{"total": total, "page": page, "limit": limit},
+			"pagination": gin.H{"total": total, "page": page, "limit": limit, "pages": pages},
 		},
 	})
 }

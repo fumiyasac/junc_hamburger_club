@@ -115,7 +115,7 @@ class _CartItemCard extends ConsumerWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: CachedNetworkImage(
-              imageUrl: item.burger.imageUrl,
+              imageUrl: item.burgerImageUrl ?? '',
               width: 72,
               height: 72,
               fit: BoxFit.cover,
@@ -135,7 +135,7 @@ class _CartItemCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item.burger.name,
+                  item.burgerName,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontSize: 14,
                   ),
@@ -144,7 +144,7 @@ class _CartItemCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '¥${item.burger.price.toInt()} × ${item.quantity}',
+                  '¥${item.burgerPrice.toInt()} × ${item.quantity}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],

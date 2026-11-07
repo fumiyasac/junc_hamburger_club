@@ -286,6 +286,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: バリデーションエラー (name 空 / email 形式不正 / password 8 文字未満 等)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: メールアドレス重複
           content:
@@ -317,6 +323,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401':
           description: 認証失敗
           content:
@@ -429,7 +441,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         '200':
           description: 取得成功
@@ -520,7 +532,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -545,7 +557,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         '200':
           description: 削除成功
@@ -615,7 +627,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         '200':
           description: 注文詳細
@@ -635,6 +647,9 @@ paths:
     put:
       tags: [Orders]
       summary: 注文キャンセル
+      description: |
+        注文状態が `received` のときのみキャンセル可能。
+        それ以外 (`preparing` / `ready` / `completed` / `cancelled`) では 400 を返す。
       security:
         - BearerAuth: []
       parameters:
@@ -642,12 +657,22 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         '200':
           description: キャンセル成功
         '400':
-          description: キャンセル不可状態
+          description: キャンセル不可状態 (current status が received 以外)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 注文が見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   # ── Users ─────────────────────────────────────────────────────────────
   /users/me:
@@ -686,7 +711,22 @@ paths:
                   nullable: true
       responses:
         '200':
-          description: 更新成功
+          description: 更新成功。更新後のプロフィールを返却
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     delete:
       tags: [Users]
       summary: アカウント削除
@@ -718,5 +758,11 @@ paths:
       responses:
         '200':
           description: 変更成功
+        '400':
+          description: バリデーションエラー (newPassword が 8 文字未満 等)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401':
           description: 現在のパスワードが違う

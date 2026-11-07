@@ -50,7 +50,22 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
     params
   );
 
-  res.json({ success: true, message: 'Profile updated' });
+  // 更新後の user を返却 (クライアント側で再フェッチ不要にする)
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT id, name, email, profile_image_url, created_at FROM users WHERE id = ?',
+    [userId]
+  );
+  const user = rows[0] as UserRow;
+  res.json({
+    success: true,
+    data: {
+      id: String(user.id),
+      name: user.name,
+      email: user.email,
+      profileImageUrl: user.profile_image_url,
+      createdAt: user.created_at,
+    },
+  });
 }
 
 export async function changePassword(req: AuthRequest, res: Response): Promise<void> {

@@ -2,8 +2,11 @@ package models
 
 import "time"
 
+// ID フィールドは JSON 出力時に string へシリアライズする (user-api との契約統一のため)。
+// Go 内部では int のまま扱い、`json:"...,string"` タグで出力時のみ文字列化する。
+
 type User struct {
-	ID              int        `json:"id"`
+	ID              int        `json:"id,string"`
 	Name            string     `json:"name"`
 	Email           string     `json:"email"`
 	ProfileImageURL *string    `json:"profileImageUrl"`
@@ -13,7 +16,7 @@ type User struct {
 }
 
 type BurgerCategory struct {
-	ID           int       `json:"id"`
+	ID           int       `json:"id,string"`
 	Name         string    `json:"name"`
 	Emoji        string    `json:"emoji"`
 	Description  *string   `json:"description"`
@@ -23,8 +26,8 @@ type BurgerCategory struct {
 }
 
 type Burger struct {
-	ID          int      `json:"id"`
-	CategoryID  int      `json:"categoryId"`
+	ID          int      `json:"id,string"`
+	CategoryID  int      `json:"categoryId,string"`
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	Price       float64  `json:"price"`
@@ -39,8 +42,8 @@ type Burger struct {
 }
 
 type Order struct {
-	ID               int         `json:"id"`
-	UserID           int         `json:"userId"`
+	ID               int         `json:"id,string"`
+	UserID           int         `json:"userId,string"`
 	UserName         string      `json:"userName"`
 	UserEmail        string      `json:"userEmail"`
 	OrderNumber      string      `json:"orderNumber"`
@@ -55,8 +58,8 @@ type Order struct {
 }
 
 type OrderItem struct {
-	ID             int     `json:"id"`
-	BurgerID       int     `json:"burgerId"`
+	ID             int     `json:"id,string"`
+	BurgerID       int     `json:"burgerId,string"`
 	BurgerName     string  `json:"burgerName"`
 	BurgerImageURL *string `json:"burgerImageUrl"`
 	Quantity       int     `json:"quantity"`

@@ -48,7 +48,7 @@ class CartViewModel extends Notifier<CartState> {
           .read(cartRepositoryProvider)
           .addToCart(burger, quantity);
       final updatedItems = List<CartItem>.from(state.items);
-      final idx = updatedItems.indexWhere((i) => i.burger.id == burger.id);
+      final idx = updatedItems.indexWhere((i) => i.burgerId == burger.id);
       if (idx >= 0) {
         updatedItems[idx] = item;
       } else {
@@ -91,12 +91,12 @@ class CartViewModel extends Notifier<CartState> {
   }
 
   bool containsBurger(String burgerId) {
-    return state.items.any((i) => i.burger.id == burgerId);
+    return state.items.any((i) => i.burgerId == burgerId);
   }
 
   int quantityFor(String burgerId) {
     try {
-      return state.items.firstWhere((i) => i.burger.id == burgerId).quantity;
+      return state.items.firstWhere((i) => i.burgerId == burgerId).quantity;
     } catch (_) {
       return 0;
     }

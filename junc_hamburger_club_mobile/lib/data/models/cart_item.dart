@@ -1,26 +1,38 @@
-import 'burger.dart';
-
+/// CartItem は API の /cart レスポンス形状に合わせたフラット構造。
+/// Burger の全情報は持たず、カート表示に必要なフィールドのみを保持する。
 class CartItem {
   final String id;
-  final Burger burger;
-  int quantity;
+  final String burgerId;
+  final String burgerName;
+  final double burgerPrice;
+  final String? burgerImageUrl;
+  final int quantity;
 
-  CartItem({
+  const CartItem({
     required this.id,
-    required this.burger,
+    required this.burgerId,
+    required this.burgerName,
+    required this.burgerPrice,
+    this.burgerImageUrl,
     required this.quantity,
   });
 
-  double get subtotal => burger.price * quantity;
+  double get subtotal => burgerPrice * quantity;
 
   CartItem copyWith({
     String? id,
-    Burger? burger,
+    String? burgerId,
+    String? burgerName,
+    double? burgerPrice,
+    String? burgerImageUrl,
     int? quantity,
   }) {
     return CartItem(
       id: id ?? this.id,
-      burger: burger ?? this.burger,
+      burgerId: burgerId ?? this.burgerId,
+      burgerName: burgerName ?? this.burgerName,
+      burgerPrice: burgerPrice ?? this.burgerPrice,
+      burgerImageUrl: burgerImageUrl ?? this.burgerImageUrl,
       quantity: quantity ?? this.quantity,
     );
   }
@@ -28,7 +40,10 @@ class CartItem {
   factory CartItem.fromJson(Map<String, dynamic> json) {
     return CartItem(
       id: json['id'].toString(),
-      burger: Burger.fromJson(json['burger'] as Map<String, dynamic>),
+      burgerId: json['burgerId'].toString(),
+      burgerName: json['burgerName'] as String,
+      burgerPrice: (json['burgerPrice'] as num).toDouble(),
+      burgerImageUrl: json['burgerImageUrl'] as String?,
       quantity: json['quantity'] as int,
     );
   }
@@ -36,8 +51,12 @@ class CartItem {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'burger': burger.toJson(),
+      'burgerId': burgerId,
+      'burgerName': burgerName,
+      'burgerPrice': burgerPrice,
+      'burgerImageUrl': burgerImageUrl,
       'quantity': quantity,
+      'subtotal': subtotal,
     };
   }
 
