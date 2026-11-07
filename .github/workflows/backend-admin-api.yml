@@ -1,0 +1,45 @@
+name: backend-admin-api
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'junc_hamburger_club_backend/admin-api/**'
+      - '.github/workflows/backend-admin-api.yml'
+  pull_request:
+    paths:
+      - 'junc_hamburger_club_backend/admin-api/**'
+      - '.github/workflows/backend-admin-api.yml'
+
+concurrency:
+  group: backend-admin-api-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vet-test-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: junc_hamburger_club_backend/admin-api
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          # NOTE: go.sum が未コミットのためモジュールキャッシュは無効化している。
+          # go.sum をコミットしたら `cache: true` と cache-dependency-path を有効化すること。
+          cache: false
+
+      - name: go mod tidy
+        run: go mod tidy
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test ./...
+
+      - name: go build
+        run: go build ./...
