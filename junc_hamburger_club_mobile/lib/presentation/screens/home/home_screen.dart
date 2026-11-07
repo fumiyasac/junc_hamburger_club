@@ -90,7 +90,7 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                SliverToBoxAdapter(
+                const SliverToBoxAdapter(
                   child: _SectionHeader(title: '📋 カテゴリから探す'),
                 ),
                 SliverToBoxAdapter(
@@ -242,7 +242,7 @@ class _ActiveOrderBanner extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               colors: [AppColors.primary, AppColors.primaryDark],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -268,7 +268,7 @@ class _ActiveOrderBanner extends StatelessWidget {
                     Text(
                       statusLabel,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.85),
+                        color: Colors.white.withValues(alpha: 0.85),
                         fontSize: 12,
                       ),
                     ),
@@ -277,7 +277,7 @@ class _ActiveOrderBanner extends StatelessWidget {
               ),
               Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: Colors.white.withOpacity(0.85),
+                color: Colors.white.withValues(alpha: 0.85),
                 size: 16,
               ),
             ],
