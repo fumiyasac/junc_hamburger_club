@@ -1,0 +1,48 @@
+name: webfront
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'junc_hamburger_club_webfront/**'
+      - '.github/workflows/webfront.yml'
+  pull_request:
+    paths:
+      - 'junc_hamburger_club_webfront/**'
+      - '.github/workflows/webfront.yml'
+
+concurrency:
+  group: webfront-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck-and-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: junc_hamburger_club_webfront
+    env:
+      # ビルド時に public な env が参照されるためダミー値を注入
+      NEXT_PUBLIC_USER_API_URL: http://localhost:3100/api/v1
+      NEXT_PUBLIC_ADMIN_API_URL: http://localhost:8080/api/v1/admin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.4'
+          cache: 'npm'
+          cache-dependency-path: junc_hamburger_club_webfront/package-lock.json
+
+      - name: npm ci
+        run: npm ci
+
+      - name: Type check (tsc --noEmit)
+        run: npx tsc --noEmit
+
+      - name: next build
+        run: npm run build
+
+      # NOTE: ESLint設定ファイル (.eslintrc* / eslint.config*) が未配置のため、
+      # `npm run lint` 単体は実行していない。next build 内の lint 検査は走る。

@@ -96,7 +96,7 @@ class OrderCompleteScreen extends ConsumerWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.08),
+                    color: AppColors.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -195,7 +195,7 @@ class _SuccessAnimationState extends State<_SuccessAnimation>
           width: 140,
           height: 140,
           decoration: BoxDecoration(
-            color: AppColors.accent.withOpacity(0.15),
+            color: AppColors.accent.withValues(alpha: 0.15),
             shape: BoxShape.circle,
           ),
           child: const Center(

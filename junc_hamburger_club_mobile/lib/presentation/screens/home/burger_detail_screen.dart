@@ -226,7 +226,7 @@ class _TagChips extends StatelessWidget {
             (tag) => Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(100),
               ),
               child: Text(
@@ -261,7 +261,7 @@ class _RatingRow extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Text(
-          '${burger.rating.toStringAsFixed(1)}',
+          burger.rating.toStringAsFixed(1),
           style: Theme.of(context).textTheme.titleSmall,
         ),
         const SizedBox(width: 4),
@@ -341,7 +341,7 @@ class _BottomBar extends StatelessWidget {
           color: AppColors.surface,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 20,
               offset: const Offset(0, -4),
             ),

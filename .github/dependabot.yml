@@ -1,0 +1,51 @@
+version: 2
+updates:
+  # Flutter (pub)
+  - package-ecosystem: pub
+    directory: /junc_hamburger_club_mobile
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - mobile
+
+  # user-api (npm)
+  - package-ecosystem: npm
+    directory: /junc_hamburger_club_backend/user-api
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - backend-user-api
+
+  # admin-api (gomod)
+  - package-ecosystem: gomod
+    directory: /junc_hamburger_club_backend/admin-api
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - backend-admin-api
+
+  # webfront (npm)
+  - package-ecosystem: npm
+    directory: /junc_hamburger_club_webfront
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - webfront
+
+  # GitHub Actions (ワークフロー内の uses: バージョン)
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
