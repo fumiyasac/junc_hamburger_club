@@ -19,7 +19,7 @@ class CartRepositoryImpl implements CartRepository {
 
   @override
   Future<CartItem> addToCart(Burger burger, int quantity) async {
-    final existing = _items.where((i) => i.burger.id == burger.id).firstOrNull;
+    final existing = _items.where((i) => i.burgerId == burger.id).firstOrNull;
     if (existing != null) {
       final updated = existing.copyWith(quantity: existing.quantity + quantity);
       final index = _items.indexWhere((i) => i.id == existing.id);
@@ -28,7 +28,10 @@ class CartRepositoryImpl implements CartRepository {
     }
     final item = CartItem(
       id: 'cart_${burger.id}_${DateTime.now().millisecondsSinceEpoch}',
-      burger: burger,
+      burgerId: burger.id,
+      burgerName: burger.name,
+      burgerPrice: burger.price,
+      burgerImageUrl: burger.imageUrl,
       quantity: quantity,
     );
     _items.add(item);

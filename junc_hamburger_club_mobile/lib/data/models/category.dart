@@ -39,8 +39,8 @@ class BurgerCategory {
       name: json['name'] as String,
       emoji: json['emoji'] as String? ?? '🍔',
       description: json['description'] as String? ?? '',
-      displayOrder: json['display_order'] as int? ?? 0,
-      isActive: json['is_active'] as bool? ?? true,
+      displayOrder: json['displayOrder'] as int? ?? 0,
+      isActive: json['isActive'] as bool? ?? true,
     );
   }
 
@@ -50,8 +50,8 @@ class BurgerCategory {
       'name': name,
       'emoji': emoji,
       'description': description,
-      'display_order': displayOrder,
-      'is_active': isActive,
+      'displayOrder': displayOrder,
+      'isActive': isActive,
     };
   }
 

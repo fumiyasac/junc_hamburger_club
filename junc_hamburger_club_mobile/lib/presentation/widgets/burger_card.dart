@@ -83,7 +83,7 @@ class _BurgerImage extends StatelessWidget {
       child: AspectRatio(
         aspectRatio: 4 / 3,
         child: CachedNetworkImage(
-          imageUrl: burger.imageUrl,
+          imageUrl: burger.imageUrl ?? '',
           fit: BoxFit.cover,
           placeholder: (context, url) => Shimmer.fromColors(
             baseColor: Colors.grey[300]!,
@@ -242,7 +242,7 @@ class BurgerCardHorizontal extends StatelessWidget {
                 height: 120,
                 width: double.infinity,
                 child: CachedNetworkImage(
-                  imageUrl: burger.imageUrl,
+                  imageUrl: burger.imageUrl ?? '',
                   fit: BoxFit.cover,
                   placeholder: (context, url) => Shimmer.fromColors(
                     baseColor: Colors.grey[300]!,

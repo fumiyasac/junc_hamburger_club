@@ -233,7 +233,7 @@ class _OrderItemsList extends StatelessWidget {
                   child: Row(
                     children: [
                       Text(
-                        '${item.burger.name}',
+                        item.burgerName,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),

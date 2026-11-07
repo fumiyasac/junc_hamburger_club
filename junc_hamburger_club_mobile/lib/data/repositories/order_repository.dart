@@ -25,9 +25,11 @@ class OrderRepositoryImpl implements OrderRepository {
         .map(
           (i) => OrderItem(
             id: '${i.id}_oi',
-            burger: i.burger,
+            burgerId: i.burgerId,
+            burgerName: i.burgerName,
+            burgerImageUrl: i.burgerImageUrl,
             quantity: i.quantity,
-            unitPrice: i.burger.price,
+            unitPrice: i.burgerPrice,
             subtotal: i.subtotal,
           ),
         )

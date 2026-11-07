@@ -54,7 +54,7 @@ class _BurgerDetailScreenState extends ConsumerState<BurgerDetailScreen> {
     final burger = _burger!;
     final inCart = ref.watch(
       cartViewModelProvider.select(
-        (s) => s.items.any((i) => i.burger.id == burger.id),
+        (s) => s.items.any((i) => i.burgerId == burger.id),
       ),
     );
 
@@ -192,7 +192,7 @@ class _HeroAppBar extends StatelessWidget {
       ),
       flexibleSpace: FlexibleSpaceBar(
         background: CachedNetworkImage(
-          imageUrl: burger.imageUrl,
+          imageUrl: burger.imageUrl ?? '',
           fit: BoxFit.cover,
           placeholder: (context, url) => Shimmer.fromColors(
             baseColor: Colors.grey[300]!,

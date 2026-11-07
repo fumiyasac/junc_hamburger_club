@@ -36,7 +36,13 @@ export async function register(req: Request, res: Response): Promise<void> {
     success: true,
     data: {
       token,
-      user: { id: String(userId), name, email, createdAt: new Date().toISOString() },
+      user: {
+        id: String(userId),
+        name,
+        email,
+        profileImageUrl: null,
+        createdAt: new Date().toISOString(),
+      },
     },
   });
 }

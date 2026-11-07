@@ -93,7 +93,7 @@ export const userApi = {
 
 export const adminAuthApi = {
   login: (email: string, password: string) =>
-    request<{ token: string; email: string }>(`${ADMIN_API}/login`, {
+    request<{ token: string; user: { id: string; email: string } }>(`${ADMIN_API}/login`, {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),

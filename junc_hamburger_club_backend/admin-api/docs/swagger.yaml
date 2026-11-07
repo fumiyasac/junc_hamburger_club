@@ -54,8 +54,15 @@ components:
           properties:
             token:
               type: string
-            email:
-              type: string
+            user:
+              type: object
+              properties:
+                id:
+                  type: string
+                  example: "1"
+                email:
+                  type: string
+                  format: email
 
     DashboardStats:
       type: object
@@ -95,9 +102,11 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: string
+          example: "1"
         categoryId:
-          type: integer
+          type: string
+          example: "1"
         name:
           type: string
         description:
@@ -132,8 +141,8 @@ components:
       required: [categoryId, name, description, price]
       properties:
         categoryId:
-          type: integer
-          example: 1
+          type: string
+          example: "1"
         name:
           type: string
           example: "新作バーガー"
@@ -164,9 +173,11 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: string
+          example: "1"
         userId:
-          type: integer
+          type: string
+          example: "1"
         userName:
           type: string
         userEmail:
@@ -200,11 +211,16 @@ components:
             type: object
             properties:
               id:
-                type: integer
+                type: string
+                example: "1"
               burgerId:
-                type: integer
+                type: string
+                example: "1"
               burgerName:
                 type: string
+              burgerImageUrl:
+                type: string
+                nullable: true
               quantity:
                 type: integer
               unitPrice:
@@ -216,7 +232,8 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: string
+          example: "1"
         name:
           type: string
         email:
@@ -241,6 +258,8 @@ components:
         page:
           type: integer
         limit:
+          type: integer
+        pages:
           type: integer
 
     Error:
@@ -349,6 +368,19 @@ paths:
       responses:
         '201':
           description: 作成成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: "21"
 
   /burgers/{id}:
     get:
@@ -361,7 +393,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         '200':
           description: バーガー詳細
@@ -384,7 +416,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -404,10 +436,22 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         '200':
           description: 削除成功
+        '404':
+          description: バーガーが存在しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 既存の注文から参照されているため削除不可 (外部キー制約)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /burgers/{id}/availability:
     put:
@@ -420,7 +464,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         '200':
           description: 切り替え成功
@@ -479,7 +523,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         '200':
           description: 注文詳細
@@ -504,7 +548,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -569,7 +613,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         '200':
           description: ユーザー詳細
@@ -594,7 +638,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         '200':
           description: 切り替え成功

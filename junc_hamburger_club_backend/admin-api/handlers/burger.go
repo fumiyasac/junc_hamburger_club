@@ -15,7 +15,8 @@ type BurgerHandler struct {
 }
 
 type CreateBurgerRequest struct {
-	CategoryID  int      `json:"categoryId" binding:"required"`
+	// categoryId は JSON 上では文字列として受け取る (契約統一のため)
+	CategoryID  int      `json:"categoryId,string" binding:"required"`
 	Name        string   `json:"name" binding:"required"`
 	Description string   `json:"description" binding:"required"`
 	Price       float64  `json:"price" binding:"required,gt=0"`
@@ -58,9 +59,13 @@ func (h *BurgerHandler) ListBurgers(c *gin.Context) {
 		burgers = append(burgers, b)
 	}
 
+	pages := 0
+	if limit > 0 {
+		pages = (total + limit - 1) / limit
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data":    gin.H{"burgers": burgers, "pagination": gin.H{"total": total, "page": page, "limit": limit}},
+		"data":    gin.H{"burgers": burgers, "pagination": gin.H{"total": total, "page": page, "limit": limit, "pages": pages}},
 	})
 }
 
@@ -114,7 +119,8 @@ func (h *BurgerHandler) CreateBurger(c *gin.Context) {
 		_, _ = h.DB.Exec("INSERT INTO burger_tags (burger_id, tag) VALUES (?, ?)", id, strings.TrimSpace(tag))
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"success": true, "data": gin.H{"id": id}})
+	// id は契約上 string を返す
+	c.JSON(http.StatusCreated, gin.H{"success": true, "data": gin.H{"id": strconv.Itoa(id)}})
 }
 
 func (h *BurgerHandler) UpdateBurger(c *gin.Context) {
@@ -163,6 +169,11 @@ func (h *BurgerHandler) DeleteBurger(c *gin.Context) {
 	id := c.Param("id")
 	result, err := h.DB.Exec("DELETE FROM burgers WHERE id = ?", id)
 	if err != nil {
+		// MySQL FK 制約違反 (エラーコード 1451: a child row exists)
+		if strings.Contains(err.Error(), "1451") {
+			c.JSON(http.StatusConflict, gin.H{"success": false, "error": "burger is referenced by existing orders"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}

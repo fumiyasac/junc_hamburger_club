@@ -1,10 +1,12 @@
 class Burger {
   final String id;
   final String categoryId;
+  final String? categoryName;
+  final String? categoryEmoji;
   final String name;
   final String description;
   final double price;
-  final String imageUrl;
+  final String? imageUrl;
   final double rating;
   final int reviewCount;
   final bool isPopular;
@@ -16,10 +18,12 @@ class Burger {
   const Burger({
     required this.id,
     required this.categoryId,
+    this.categoryName,
+    this.categoryEmoji,
     required this.name,
     required this.description,
     required this.price,
-    required this.imageUrl,
+    this.imageUrl,
     this.rating = 0.0,
     this.reviewCount = 0,
     this.isPopular = false,
@@ -32,6 +36,8 @@ class Burger {
   Burger copyWith({
     String? id,
     String? categoryId,
+    String? categoryName,
+    String? categoryEmoji,
     String? name,
     String? description,
     double? price,
@@ -47,6 +53,8 @@ class Burger {
     return Burger(
       id: id ?? this.id,
       categoryId: categoryId ?? this.categoryId,
+      categoryName: categoryName ?? this.categoryName,
+      categoryEmoji: categoryEmoji ?? this.categoryEmoji,
       name: name ?? this.name,
       description: description ?? this.description,
       price: price ?? this.price,
@@ -64,39 +72,43 @@ class Burger {
   factory Burger.fromJson(Map<String, dynamic> json) {
     return Burger(
       id: json['id'].toString(),
-      categoryId: json['category_id'].toString(),
+      categoryId: json['categoryId'].toString(),
+      categoryName: json['categoryName'] as String?,
+      categoryEmoji: json['categoryEmoji'] as String?,
       name: json['name'] as String,
       description: json['description'] as String,
       price: (json['price'] as num).toDouble(),
-      imageUrl: json['image_url'] as String,
+      imageUrl: json['imageUrl'] as String?,
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
-      reviewCount: json['review_count'] as int? ?? 0,
-      isPopular: json['is_popular'] as bool? ?? false,
-      isAvailable: json['is_available'] as bool? ?? true,
+      reviewCount: json['reviewCount'] as int? ?? 0,
+      isPopular: json['isPopular'] as bool? ?? false,
+      isAvailable: json['isAvailable'] as bool? ?? true,
       calories: json['calories'] as int?,
       ingredients: (json['ingredients'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
-          [],
+          const [],
       tags: (json['tags'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
-          [],
+          const [],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'category_id': categoryId,
+      'categoryId': categoryId,
+      'categoryName': categoryName,
+      'categoryEmoji': categoryEmoji,
       'name': name,
       'description': description,
       'price': price,
-      'image_url': imageUrl,
+      'imageUrl': imageUrl,
       'rating': rating,
-      'review_count': reviewCount,
-      'is_popular': isPopular,
-      'is_available': isAvailable,
+      'reviewCount': reviewCount,
+      'isPopular': isPopular,
+      'isAvailable': isAvailable,
       'calories': calories,
       'ingredients': ingredients,
       'tags': tags,
