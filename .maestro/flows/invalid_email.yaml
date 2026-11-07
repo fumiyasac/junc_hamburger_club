@@ -1,0 +1,21 @@
+# バリデーション: @ を含まないメールアドレスで登録を試みるとクライアント側
+# バリデーションでエラー表示されることを確認する。
+appId: com.junc.juncHamburgerClub
+name: invalid_email
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- evalScript: ${output.name = 'テストユーザー'}
+- evalScript: ${output.email = 'not-an-email'}    # @ なし
+- evalScript: ${output.password = 'password123'}
+
+- runFlow: ../subflows/onboarding_to_register.yaml
+- runFlow: ../subflows/fill_register_form.yaml
+- tapOn: "登録する 🎉"
+
+- extendedWaitUntil:
+    visible: "正しいメールアドレスを入力してください"
+    timeout: 5000
+- assertNotVisible: "🔥 人気バーガー"

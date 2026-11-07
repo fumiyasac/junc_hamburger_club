@@ -1,0 +1,66 @@
+# ハッピーパス E2E:
+#   オンボーディング → 新規登録 → ホーム → バーガー詳細 → カート追加
+#   → カート画面 → 注文確定 → 注文完了画面表示
+#
+# 前提: UserRepository / BurgerRepository / CartRepository / OrderRepository は
+#       すべてモック実装のためバックエンドは不要。アプリ再インストールで状態は
+#       完全にリセットされる (launchApp with clearState)。
+appId: com.junc.juncHamburgerClub
+name: happy_path
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+# メールは実行毎にユニーク化してモック内の重複チェックを回避する。
+- evalScript: ${output.email = 'e2e-' + Date.now() + '@example.com'}
+- evalScript: ${output.name = 'E2E ユーザー'}
+- evalScript: ${output.password = 'password123'}
+
+# オンボーディング → 登録画面
+- runFlow: ../subflows/onboarding_to_register.yaml
+
+# 登録フォームを埋めて送信
+- runFlow: ../subflows/fill_register_form.yaml
+- tapOn: "登録する 🎉"
+
+# ホーム画面に到達
+- extendedWaitUntil:
+    visible: "🔥 人気バーガー"
+    timeout: 10000
+
+# 先頭の人気バーガー詳細を開く (バーガー名は mock_data 先頭の "JUNCクラシックバーガー")
+- tapOn: "JUNCクラシックバーガー"
+- extendedWaitUntil:
+    visible:
+      text: "カートに入れる"
+      enabled: true
+    timeout: 5000
+
+# カートに追加
+- tapOn:
+    text: "カートに入れる"
+# 詳細画面のボタンは追加後 "追加する ¥..." に変化する
+- extendedWaitUntil:
+    visible: "追加する"
+    timeout: 5000
+
+# 戻ってカートタブへ (iOS 左端スワイプ or Nav 戻るアイコン)
+- back
+- extendedWaitUntil:
+    visible: "🔥 人気バーガー"
+    timeout: 5000
+# ボトムナビの "カート" (BottomNavigationBar の label テキスト)
+- tapOn: "カート"
+- extendedWaitUntil:
+    visible: "🛒 カート"
+    timeout: 5000
+
+# 注文する
+- tapOn:
+    text: "注文する"
+# 処理中→完了画面
+- extendedWaitUntil:
+    visible: "ご注文ありがとうございます！"
+    timeout: 10000
+- assertVisible: "注文番号"

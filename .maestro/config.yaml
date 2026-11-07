@@ -1,0 +1,13 @@
+# Maestro の全フロー共通設定。
+# 各フローの先頭 `appId` と合わせて使う。
+appId: com.junc.juncHamburgerClub
+---
+# この executionOrder は `maestro test .maestro/flows` と指定したときの実行順。
+# invalid 系 → happy path の順で、認証状態が happy path に持ち越されないようにする
+# (各 flow は launchApp で状態をクリアする)。
+executionOrder:
+  continueOnFailure: true
+  flowsOrder:
+    - invalid_email
+    - short_password
+    - happy_path
