@@ -27,7 +27,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: '1.22'
+          go-version: '1.26'
           # NOTE: go.sum が未コミットのためモジュールキャッシュは無効化している。
           # go.sum をコミットしたら `cache: true` と cache-dependency-path を有効化すること。
           cache: false
