@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/models/burger.dart';
 import '../../../providers/providers.dart';
 import '../../../viewmodels/cart_viewmodel.dart';
+import '../../widgets/burger_image.dart';
 
 class BurgerDetailScreen extends ConsumerStatefulWidget {
   final String burgerId;
@@ -191,20 +191,9 @@ class _HeroAppBar extends StatelessWidget {
         ),
       ),
       flexibleSpace: FlexibleSpaceBar(
-        background: CachedNetworkImage(
-          imageUrl: burger.imageUrl ?? '',
-          fit: BoxFit.cover,
-          placeholder: (context, url) => Shimmer.fromColors(
-            baseColor: Colors.grey[300]!,
-            highlightColor: Colors.grey[100]!,
-            child: Container(color: Colors.white),
-          ),
-          errorWidget: (context, url, error) => Container(
-            color: AppColors.surfaceVariant,
-            child: const Center(
-              child: Text('🍔', style: TextStyle(fontSize: 80)),
-            ),
-          ),
+        background: BurgerImage(
+          imageUrl: burger.imageUrl,
+          placeholderFontSize: 80,
         ),
       ),
     );
