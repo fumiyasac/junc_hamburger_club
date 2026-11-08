@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:shimmer/shimmer.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/burger.dart';
+import 'burger_image.dart';
 
 class BurgerCard extends StatelessWidget {
   final Burger burger;
@@ -82,20 +81,9 @@ class _BurgerImage extends StatelessWidget {
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       child: AspectRatio(
         aspectRatio: 4 / 3,
-        child: CachedNetworkImage(
-          imageUrl: burger.imageUrl ?? '',
-          fit: BoxFit.cover,
-          placeholder: (context, url) => Shimmer.fromColors(
-            baseColor: Colors.grey[300]!,
-            highlightColor: Colors.grey[100]!,
-            child: Container(color: Colors.white),
-          ),
-          errorWidget: (context, url, error) => Container(
-            color: AppColors.surfaceVariant,
-            child: const Center(
-              child: Text('🍔', style: TextStyle(fontSize: 48)),
-            ),
-          ),
+        child: BurgerImage(
+          imageUrl: burger.imageUrl,
+          placeholderFontSize: 48,
         ),
       ),
     );
@@ -241,20 +229,9 @@ class BurgerCardHorizontal extends StatelessWidget {
               child: SizedBox(
                 height: 120,
                 width: double.infinity,
-                child: CachedNetworkImage(
-                  imageUrl: burger.imageUrl ?? '',
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Shimmer.fromColors(
-                    baseColor: Colors.grey[300]!,
-                    highlightColor: Colors.grey[100]!,
-                    child: Container(color: Colors.white),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    color: AppColors.surfaceVariant,
-                    child: const Center(
-                      child: Text('🍔', style: TextStyle(fontSize: 36)),
-                    ),
-                  ),
+                child: BurgerImage(
+                  imageUrl: burger.imageUrl,
+                  placeholderFontSize: 36,
                 ),
               ),
             ),
