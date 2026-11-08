@@ -135,6 +135,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 28),
                 if (isRegister) ...[
                   _InputField(
+                    identifier: 'register_name_field',
                     controller: _nameController,
                     label: 'お名前',
                     hint: '田中 太郎',
@@ -147,6 +148,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   const SizedBox(height: 16),
                 ],
                 _InputField(
+                  identifier: 'register_email_field',
                   controller: _emailController,
                   label: 'メールアドレス',
                   hint: 'example@email.com',
@@ -160,6 +162,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: 16),
                 _InputField(
+                  identifier: 'register_password_field',
                   controller: _passwordController,
                   label: 'パスワード',
                   hint: '8文字以上',
@@ -177,6 +180,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 if (isRegister) ...[
                   const SizedBox(height: 16),
                   _InputField(
+                    identifier: 'register_confirm_password_field',
                     controller: _confirmPasswordController,
                     label: 'パスワード（確認）',
                     hint: 'もう一度入力してください',
@@ -287,6 +291,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 }
 
 class _InputField extends StatelessWidget {
+  /// Maestro など自動テストから TextFormField を安定して tap できるようにする
+  /// アクセシビリティ識別子。null の場合は付与しない。
+  final String? identifier;
   final TextEditingController controller;
   final String label;
   final String hint;
@@ -298,6 +305,7 @@ class _InputField extends StatelessWidget {
   final String? Function(String?)? validator;
 
   const _InputField({
+    this.identifier,
     required this.controller,
     required this.label,
     required this.hint,
@@ -311,6 +319,28 @@ class _InputField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final field = TextFormField(
+      controller: controller,
+      obscureText: isPassword && obscureText,
+      keyboardType: keyboardType,
+      validator: validator,
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixIcon: Icon(icon, color: AppColors.textHint, size: 20),
+        suffixIcon: isPassword
+            ? IconButton(
+                icon: Icon(
+                  obscureText
+                      ? Icons.visibility_off_rounded
+                      : Icons.visibility_rounded,
+                  color: AppColors.textHint,
+                  size: 20,
+                ),
+                onPressed: onToggleObscure,
+              )
+            : null,
+      ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -322,28 +352,9 @@ class _InputField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          obscureText: isPassword && obscureText,
-          keyboardType: keyboardType,
-          validator: validator,
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(icon, color: AppColors.textHint, size: 20),
-            suffixIcon: isPassword
-                ? IconButton(
-                    icon: Icon(
-                      obscureText
-                          ? Icons.visibility_off_rounded
-                          : Icons.visibility_rounded,
-                      color: AppColors.textHint,
-                      size: 20,
-                    ),
-                    onPressed: onToggleObscure,
-                  )
-                : null,
-          ),
-        ),
+        identifier == null
+            ? field
+            : Semantics(identifier: identifier, child: field),
       ],
     );
   }

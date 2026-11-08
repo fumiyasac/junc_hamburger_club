@@ -1,0 +1,20 @@
+# オンボーディング 3 ページをめくって登録画面まで到達するサブフロー。
+# 新規起動直後 (= 未ログイン) に限り呼び出す。
+appId: com.junc.juncHamburgerClub
+---
+- extendedWaitUntil:
+    visible:
+      text: "JUNC Hamburger\nClubへようこそ！"
+    timeout: 10000
+- tapOn: "次へ"
+- extendedWaitUntil:
+    visible: "こだわりメニューを\n自由に選んで"
+    timeout: 5000
+- tapOn: "次へ"
+- extendedWaitUntil:
+    visible: "できたてを\nすぐ受け取れる"
+    timeout: 5000
+- tapOn: "はじめる 🍔"
+- extendedWaitUntil:
+    visible: "新規会員登録"
+    timeout: 5000

@@ -1,0 +1,26 @@
+# 登録フォームの 4 項目を入力するサブフロー。
+# 呼び出し元で以下の output 変数をセットしておくこと:
+#   output.name      - 氏名
+#   output.email     - メール (呼び出しごとに重複しない値推奨)
+#   output.password  - パスワード (ハッピーパス=8文字以上、バリデ失敗=7文字など任意)
+appId: com.junc.juncHamburgerClub
+---
+- tapOn:
+    id: "register_name_field"
+- inputText: ${output.name}
+- hideKeyboard
+
+- tapOn:
+    id: "register_email_field"
+- inputText: ${output.email}
+- hideKeyboard
+
+- tapOn:
+    id: "register_password_field"
+- inputText: ${output.password}
+- hideKeyboard
+
+- tapOn:
+    id: "register_confirm_password_field"
+- inputText: ${output.password}
+- hideKeyboard

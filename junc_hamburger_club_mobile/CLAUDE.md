@@ -57,3 +57,48 @@ flutter run -d emulator-5556 --dart-define=API_HOST=10.0.2.2
 - UI は Material 3 + Google Fonts (Nunito)。カラーは `core/theme/` の `AppColors` を使い、ハードコードしない
 - ルーティングは `core/router/` の GoRouter + ShellRoute。ボトムナビは ShellRoute が担当するので、各画面側に BottomNavigationBar を持たせない
 - トラブルシューティングは [`../README.md`](../README.md) §13 を参照
+
+## E2E テスト (Maestro)
+
+`.maestro/` 配下に Maestro フローを配置している (リポジトリルート直下)。現在のフロー:
+
+- `happy_path` — オンボーディング → 新規登録 → バーガー詳細 → カート追加 → 注文確定 → 注文完了
+- `invalid_email` — @ を含まないメールでバリデーションエラー
+- `short_password` — 7 文字パスワードでバリデーションエラー
+
+**重要**: 現在 Repository は全てモック実装 (詳細は上部 "現状" 節)。したがって Maestro テストは **モック駆動のアプリに対して動作** する。バックエンド起動は不要。実 API 接続に切り替えた際はフロー側に認証 API のレート/重複対策が必要。
+
+### セットアップ
+
+```bash
+# Maestro CLI (初回のみ)
+curl -Ls "https://get.maestro.mobile.dev" | bash
+export PATH="$PATH":"$HOME/.maestro/bin"
+
+# iOS シミュレータを起動 & アプリを (debug で) インストール
+open -a Simulator
+flutter run -d "iPhone 17 Pro Max" --dart-define=API_HOST=localhost
+# アプリが立ち上がったら一度停止 (q)。シミュレータにアプリは残る。
+```
+
+### 実行
+
+```bash
+# リポジトリルートから。1 本ずつ実行する場合:
+maestro test .maestro/flows/happy_path.yaml
+maestro test .maestro/flows/invalid_email.yaml
+maestro test .maestro/flows/short_password.yaml
+
+# 全フロー (config.yaml の executionOrder に従う):
+maestro test .maestro
+```
+
+各フローは先頭で `launchApp: clearState: true` を実行するため、前のフローの状態は引き継がない。
+
+### フローから要素を特定する方針
+
+- **できる限り visible text で特定する** (日本語ラベル・絵文字入りボタン名など)
+- テキスト欄 (`TextFormField`) のみ `Semantics(identifier: '...')` を付与して `id:` 指定でタップする。現状の識別子:
+  - `register_name_field` / `register_email_field` / `register_password_field` / `register_confirm_password_field`
+- 固定 `sleep` を書かず、`extendedWaitUntil: visible: ...` で状態を待つ
+- テストデータは `evalScript: ${output.email = 'e2e-' + Date.now() + '@example.com'}` で実行毎にユニーク化する (モック Repository の重複登録エラー回避)
