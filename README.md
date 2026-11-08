@@ -136,7 +136,7 @@ junc_hamburger_club/
 |---|---|
 | DB | MySQL 8.0 (Docker) |
 | User API | TypeScript + Express.js + mysql2 |
-| Admin API | Go 1.22 + Gin + go-sql-driver |
+| Admin API | Go 1.26 + Gin + go-sql-driver |
 | 認証 | JWT (HS256, 7d / 24h) |
 | API 仕様 | OpenAPI 3.0 (Swagger) |
 | インフラ | Docker Compose |
@@ -179,7 +179,7 @@ docker --version         # 20.x 以上
 docker compose version   # v2.x 以上
 node --version           # 20.x 以上
 npm --version            # 10.x 以上
-go version               # 1.22 以上 (Admin API のローカル開発時のみ)
+go version               # 1.26 以上 (Admin API のローカル開発時のみ)
 ```
 
 ### インストール手順（未インストールの場合）

@@ -22,10 +22,10 @@ jobs:
       run:
         working-directory: junc_hamburger_club_backend/user-api
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22.23.4'
           # NOTE: package-lock.json が未コミットのため npm cache は無効化している。

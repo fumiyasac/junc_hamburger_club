@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/models/cart_item.dart';
 import '../../../viewmodels/cart_viewmodel.dart';
 import '../../../viewmodels/order_viewmodel.dart';
+import '../../widgets/burger_image.dart';
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -114,19 +114,10 @@ class _CartItemCard extends ConsumerWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: CachedNetworkImage(
-              imageUrl: item.burgerImageUrl ?? '',
+            child: BurgerImage(
+              imageUrl: item.burgerImageUrl,
               width: 72,
               height: 72,
-              fit: BoxFit.cover,
-              errorWidget: (_, __, ___) => Container(
-                width: 72,
-                height: 72,
-                color: AppColors.surfaceVariant,
-                child: const Center(
-                  child: Text('🍔', style: TextStyle(fontSize: 32)),
-                ),
-              ),
             ),
           ),
           const SizedBox(width: 12),
