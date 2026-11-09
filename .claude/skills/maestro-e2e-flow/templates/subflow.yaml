@@ -1,0 +1,26 @@
+# .maestro/subflows/<name>.yaml
+#
+# サブフロー雛形。既存 fill_register_form.yaml の構造。
+# 呼び出し側で output.xxx をセットしておき、ここでは ${output.xxx} を参照する。
+#
+# コメントで「呼び出し元で必要な output」を明記すること (fill_register_form.yaml 参照)。
+appId: com.junc.juncHamburgerClub
+---
+# 呼び出し元で以下をセットしておくこと:
+#   output.query  - 検索キーワード
+#   output.expectedHit  - 想定ヒット件数のテキスト
+
+- tapOn: "検索"
+- extendedWaitUntil:
+    visible: "検索"    # タブ切替後の画面マーカー
+    timeout: 5000
+
+- tapOn:
+    id: "search_query_field"
+- inputText: ${output.query}
+- hideKeyboard
+
+# 検索はデバウンス 400ms 後に走るので、結果画面特有の文言を待つ
+- extendedWaitUntil:
+    visible: ${output.expectedHit}
+    timeout: 5000

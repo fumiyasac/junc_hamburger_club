@@ -1,0 +1,50 @@
+# .maestro/flows/<name>.yaml
+#
+# 新規フローの雛形。happy_path.yaml の構造に合わせている。
+#
+# 冒頭ルール:
+# - appId と name を必ず記載
+# - launchApp: clearState: true で前の状態をリセット
+# - テストデータは evalScript で Date.now() を使ってユニーク化
+# - 操作後は extendedWaitUntil: visible: ... で画面要素の出現を待つ (固定 sleep 禁止)
+appId: com.junc.juncHamburgerClub
+name: review_post_happy
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+# ユニーク化すべきデータは evalScript で runtime 生成
+- evalScript: ${output.email = 'e2e-' + Date.now() + '@example.com'}
+- evalScript: ${output.name = 'E2E ユーザー'}
+- evalScript: ${output.password = 'password123'}
+
+# 共通サブフロー呼び出し (オンボ → 登録画面)
+- runFlow: ../subflows/onboarding_to_register.yaml
+- runFlow: ../subflows/fill_register_form.yaml
+- tapOn: "登録する 🎉"
+
+# ホーム画面で特徴的な文言を待つ
+- extendedWaitUntil:
+    visible: "🔥 人気バーガー"
+    timeout: 10000
+
+# 対象バーガー詳細を開く (mock_data の先頭名)
+- tapOn: "JUNCクラシックバーガー"
+- extendedWaitUntil:
+    visible: "カートに入れる"
+    timeout: 5000
+
+# ここに新機能の操作を追加する (例: レビュー投稿)
+# - tapOn: "レビューを書く"
+# - tapOn:
+#     id: "review_comment_field"
+# - inputText: "とても美味しかったです"
+# - hideKeyboard
+# - tapOn: "投稿"
+# - extendedWaitUntil:
+#     visible: "レビューを投稿しました"
+#     timeout: 5000
+
+# 画面遷移の最終状態を assert
+- assertVisible: "JUNCクラシックバーガー"
