@@ -31,6 +31,7 @@
 **/.next/
 **/dist/
 **/out/
+**/tsconfig.tsbuildinfo
 **/.env.local
 **/.env.*.local
 **/npm-debug.log*
@@ -39,6 +40,7 @@
 **/.pnpm-debug.log*
 
 # ===== Docker =====
+docker-compose.override.yml
 junc_hamburger_club_backend/.env
 
 # ===== macOS =====
