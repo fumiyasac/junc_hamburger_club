@@ -14,7 +14,7 @@ dependencies:
   dio: ^5.11.1
   shared_preferences: ^2.5.6
   cached_network_image: ^3.4.1
-  smooth_page_indicator: ^1.2.0+3
+  smooth_page_indicator: ^3.0.0
   badges: ^3.1.2
   shimmer: ^3.0.0
   flutter_rating_bar: ^4.0.1
