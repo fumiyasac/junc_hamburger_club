@@ -24,6 +24,8 @@ tags:
     description: 注文管理
   - name: Users
     description: ユーザープロフィール
+  - name: News
+    description: 店舗からのお知らせ (認証不要)
 
 components:
   securitySchemes:
@@ -232,6 +234,61 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/OrderItem'
+
+    NewsCategory:
+      type: string
+      enum: [store, menu, campaign, app]
+      description: |
+        お知らせのカテゴリーコード値。クライアント側で日本語ラベルに変換して表示する。
+        - `store`: 店舗情報 (営業時間変更、臨時休業など)
+        - `menu`: 新メニュー・期間限定メニュー
+        - `campaign`: キャンペーン・イベント
+        - `app`: モバイルアプリに関するお知らせ
+
+    NewsListItem:
+      type: object
+      description: 一覧用。本文は抜粋 (excerpt, 120 文字で切り詰め) のみを返す。
+      required: [id, title, category, excerpt, publishedAt]
+      properties:
+        id:
+          type: string
+          example: "1"
+        title:
+          type: string
+        category:
+          $ref: '#/components/schemas/NewsCategory'
+        excerpt:
+          type: string
+          description: 本文の冒頭を 120 文字で切り詰め、超過時は末尾に `…` を付与。改行は空白に畳む。
+          example: "いつも JUNC Hamburger Club をご愛顧いただきありがとうございます。年末年始の営業時間を下記のとおりご案内いたします。..."
+        publishedAt:
+          type: string
+          format: date-time
+
+    News:
+      type: object
+      description: 詳細用。本文全文と各種タイムスタンプを含む。
+      required: [id, title, category, body, publishedAt, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          example: "1"
+        title:
+          type: string
+        category:
+          $ref: '#/components/schemas/NewsCategory'
+        body:
+          type: string
+          description: プレーンテキスト。改行は `\n` で表現。
+        publishedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
 
     Pagination:
       type: object
@@ -766,3 +823,110 @@ paths:
                 $ref: '#/components/schemas/Error'
         '401':
           description: 現在のパスワードが違う
+
+  # ── News ─────────────────────────────────────────────────────────────
+  /news:
+    get:
+      tags: [News]
+      summary: お知らせ一覧取得
+      description: |
+        公開日時 (`publishedAt`) の降順で返す。
+        未来日時のお知らせ (予約公開) は含まれない。
+      parameters:
+        - name: category
+          in: query
+          schema:
+            $ref: '#/components/schemas/NewsCategory'
+          description: カテゴリーでフィルタ
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      news:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NewsListItem'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '400':
+          description: 無効な category 値
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /news/categories:
+    get:
+      tags: [News]
+      summary: カテゴリーコード値一覧
+      description: UI のタブ構築などに使う固定順の配列を返す。
+      responses:
+        '200':
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NewsCategory'
+
+  /news/{id}:
+    get:
+      tags: [News]
+      summary: お知らせ詳細取得
+      description: |
+        指定 ID のお知らせを返す。
+        未来日時 (予約公開) のお知らせは 404 を返す。
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: お知らせ ID (数値文字列)。非数値は 400 を返す。
+          schema:
+            type: string
+            pattern: '^[1-9][0-9]*$'
+      responses:
+        '200':
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/News'
+        '404':
+          description: 存在しない / 未公開
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

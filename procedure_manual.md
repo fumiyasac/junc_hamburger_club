@@ -259,6 +259,29 @@ docker compose stop
 docker compose down -v
 ```
 
+### 既存環境へ新テーブル・データを追加する (追加マイグレーション)
+
+`init-db/*.sql` は **MySQL ボリュームが空のときにしか実行されない**。既に `docker compose up` で立ち上がっている開発環境に、後から追加されたテーブル (例: お知らせ機能の `news` テーブル) を取り込みたい場合は 2 通りの選択肢がある。
+
+**(A) ボリュームを作り直して全部再 seed する (開発中のデータは失われる)**
+
+```bash
+cd junc_hamburger_club_backend
+docker compose down -v
+docker compose up -d --build
+```
+
+**(B) 追加分だけを後付けする (既存データを保持)**
+
+本リポジトリでは `init-db/03_news_migration.sql` のような**冪等な追加 SQL** を用意している (`CREATE TABLE IF NOT EXISTS` + `INSERT ... ON DUPLICATE KEY UPDATE`)。何度流しても安全。
+
+```bash
+docker exec -i junc_mysql mysql -u root -prootpassword junc_hamburger \
+  < junc_hamburger_club_backend/init-db/03_news_migration.sql
+```
+
+適用後、`curl http://localhost:3100/api/v1/news` 等で確認できる。
+
 ---
 
 ## 4. Webフロントエンドの起動

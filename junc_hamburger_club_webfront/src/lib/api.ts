@@ -34,6 +34,20 @@ export const burgerApi = {
     request<import('./types').Category[]>(`${USER_API}/burgers/categories`),
 }
 
+export const newsApi = {
+  list: (params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : ''
+    return request<{
+      news: import('./types').NewsListItem[]
+      pagination: import('./types').PaginationMeta
+    }>(`${USER_API}/news${qs}`)
+  },
+  get: (id: string) =>
+    request<import('./types').News>(`${USER_API}/news/${id}`),
+  categories: () =>
+    request<import('./types').NewsCategory[]>(`${USER_API}/news/categories`),
+}
+
 export const authApi = {
   register: (name: string, email: string, password: string) =>
     request<{ token: string; user: import('./types').User }>(`${USER_API}/auth/register`, {

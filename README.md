@@ -279,6 +279,27 @@ SELECT id, name, price FROM burgers LIMIT 5;
 EXIT;
 ```
 
+### 6-4-1. 既存環境への追加マイグレーション (お知らせ機能など)
+
+`init-db/*.sql` は MySQL ボリュームが空のときにしか実行されないため、既に開発環境が立ち上がっている状態でテーブル追加の変更を取り込みたい場合は、下記のいずれかを行う:
+
+**(A) ボリュームを作り直して全部再 seed する (開発中のデータは失われる)**
+
+```bash
+cd junc_hamburger_club_backend
+docker compose down -v
+docker compose up -d --build
+```
+
+**(B) 追加分だけを後付けする (既存データを保持)**
+
+本リポジトリでは `init-db/03_news_migration.sql` のような**冪等なマイグレーション SQL** を用意している。`CREATE TABLE IF NOT EXISTS` と `INSERT ... ON DUPLICATE KEY UPDATE` で構成されているため、何度流しても安全。
+
+```bash
+docker exec -i junc_mysql mysql -u root -prootpassword junc_hamburger \
+  < junc_hamburger_club_backend/init-db/03_news_migration.sql
+```
+
 ### 6-5. サービスの停止・再起動
 
 ```bash

@@ -143,3 +143,22 @@ CREATE TABLE IF NOT EXISTS order_items (
   CONSTRAINT fk_order_items_order  FOREIGN KEY (order_id)  REFERENCES orders  (id) ON DELETE CASCADE,
   CONSTRAINT fk_order_items_burger FOREIGN KEY (burger_id) REFERENCES burgers (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ────────────────────────────────────────
+-- News (お知らせ)
+-- 将来の管理画面編集も考慮してカテゴリーは VARCHAR + CHECK 制約。
+-- published_at は予約公開 (未来日時) を扱えるよう NOT NULL。
+-- ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS news (
+  id            INT          NOT NULL AUTO_INCREMENT,
+  title         VARCHAR(200) NOT NULL,
+  category      VARCHAR(20)  NOT NULL,
+  body          TEXT         NOT NULL,
+  published_at  TIMESTAMP    NOT NULL,
+  created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_news_published (published_at),
+  KEY idx_news_category (category),
+  CONSTRAINT chk_news_category CHECK (category IN ('store','menu','campaign','app'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

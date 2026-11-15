@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { burgerApi } from '@/lib/api'
+import { burgerApi, newsApi } from '@/lib/api'
 import { formatPrice, resolveBurgerImage } from '@/lib/utils'
-import { Burger } from '@/lib/types'
+import { Burger, NewsListItem } from '@/lib/types'
+import NewsCard from '@/components/public/NewsCard'
 
 export const revalidate = 60
 
@@ -15,8 +16,20 @@ async function getPopularBurgers(): Promise<Burger[]> {
   }
 }
 
+async function getLatestNews(): Promise<NewsListItem[]> {
+  try {
+    const result = await newsApi.list({ limit: '3' })
+    return result.news
+  } catch {
+    return []
+  }
+}
+
 export default async function HomePage() {
-  const popularBurgers = await getPopularBurgers()
+  const [popularBurgers, latestNews] = await Promise.all([
+    getPopularBurgers(),
+    getLatestNews(),
+  ])
 
   return (
     <div>
@@ -75,6 +88,27 @@ export default async function HomePage() {
             <div className="text-center mt-10">
               <Link href="/menu" className="btn-primary inline-block">
                 全メニューを見る
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* News */}
+      {latestNews.length > 0 && (
+        <section className="py-16 px-4 bg-white">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-3xl font-black text-center mb-10">
+              お知らせ <span className="text-primary">News</span>
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {latestNews.map((n) => (
+                <NewsCard key={n.id} news={n} compact />
+              ))}
+            </div>
+            <div className="text-center mt-8">
+              <Link href="/news" className="btn-secondary inline-block">
+                もっと見る
               </Link>
             </div>
           </div>

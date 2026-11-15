@@ -8,6 +8,7 @@ import clsx from 'clsx'
 const NAV_LINKS = [
   { href: '/', label: 'ホーム' },
   { href: '/menu', label: 'メニュー' },
+  { href: '/news', label: 'お知らせ' },
 ]
 
 export default function Header() {

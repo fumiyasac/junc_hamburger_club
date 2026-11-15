@@ -88,3 +88,15 @@ export interface OrderItemRow {
   burger_name: string;
   burger_image_url: string | null;
 }
+
+export type NewsCategory = 'store' | 'menu' | 'campaign' | 'app';
+
+export interface NewsRow {
+  id: number;
+  title: string;
+  category: NewsCategory;
+  body: string;
+  published_at: Date;
+  created_at: Date;
+  updated_at: Date;
+}
