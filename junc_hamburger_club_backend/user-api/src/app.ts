@@ -10,6 +10,7 @@ import burgerRoutes from './routes/burger.routes';
 import cartRoutes from './routes/cart.routes';
 import orderRoutes from './routes/order.routes';
 import userRoutes from './routes/user.routes';
+import newsRoutes from './routes/news.routes';
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use('/api/v1/burgers', burgerRoutes);
 app.use('/api/v1/cart', cartRoutes);
 app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/news', newsRoutes);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'junc-user-api' });

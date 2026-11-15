@@ -18,6 +18,31 @@ export function formatDate(dateStr: string): string {
   })
 }
 
+// ── News カテゴリー ─────────────────────────────────────────────────────────
+
+import type { NewsCategory } from './types'
+
+export const NEWS_CATEGORY_LABEL: Record<NewsCategory, string> = {
+  store:    '店舗',
+  menu:     '新メニュー',
+  campaign: 'キャンペーン',
+  app:      'アプリ',
+}
+
+// バッジのカテゴリー配色。カテゴリーごとに見分けがつくように Tailwind トークンで分離。
+export const NEWS_CATEGORY_BADGE: Record<NewsCategory, string> = {
+  store:    'bg-blue-100 text-blue-700',
+  menu:     'bg-primary-light text-primary-dark',
+  campaign: 'bg-secondary text-gray-800',
+  app:      'bg-green-100 text-green-700',
+}
+
+export function formatNewsDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('ja-JP', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  })
+}
+
 export const ORDER_STATUS_LABEL: Record<string, string> = {
   received:   '受付済み',
   preparing:  '調理中',

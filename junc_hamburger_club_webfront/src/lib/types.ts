@@ -79,6 +79,26 @@ export interface PaginationMeta {
   pages: number
 }
 
+export type NewsCategory = 'store' | 'menu' | 'campaign' | 'app'
+
+export interface NewsListItem {
+  id: string
+  title: string
+  category: NewsCategory
+  excerpt: string
+  publishedAt: string
+}
+
+export interface News {
+  id: string
+  title: string
+  category: NewsCategory
+  body: string
+  publishedAt: string
+  createdAt: string
+  updatedAt: string
+}
+
 // Admin-specific
 export interface AdminUser extends User {
   isActive: boolean

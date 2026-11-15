@@ -465,6 +465,78 @@ curl -s http://localhost:3000/api/v1/orders \
 
 ---
 
+### 4-7 お知らせ (News) の検証
+
+**事前条件**
+- `03_news_migration.sql` を適用済み、または `docker compose down -v && up -d --build` 済み
+- user-api / webfront が稼働中 (`http://localhost:3002`)
+- `date` が 2026-11-01 〜 2026-12-14 の範囲 (未来日時 #8 のテストに必要)
+
+#### 4-7-1 API レベル検証 (user-api)
+
+```bash
+# 一覧 (未来の #8 を除く 7 件のうちページネーション分)
+curl -s http://localhost:3100/api/v1/news | jq '.data.pagination'
+# 期待: { total: 6, page: 1, limit: 20, pages: 1 }
+# (未来日時 #8 を含まないため total は 6)
+
+# カテゴリフィルタ (店舗のみ)
+curl -s "http://localhost:3100/api/v1/news?category=store" | jq '.data.news[].id'
+# 期待: ["1", "2"]
+
+# ページネーション (menu カテゴリで limit=1)
+curl -s "http://localhost:3100/api/v1/news?category=menu&limit=1&page=2" | jq '.data.pagination'
+# 期待: { total: 2, page: 2, limit: 1, pages: 2 }
+
+# カテゴリコード一覧
+curl -s http://localhost:3100/api/v1/news/categories | jq
+# 期待: { success: true, data: ["store","menu","campaign","app"] }
+
+# 詳細 (改行 \n が保持されていること)
+curl -s http://localhost:3100/api/v1/news/1 | jq '.data.body'
+# 期待: "いつも JUNC Hamburger Club をご愛顧いただきありがとうございます。\n\n年末年始の..."
+
+# 未来日時の予約公開は 404
+curl -s -w "\n%{http_code}" http://localhost:3100/api/v1/news/8
+# 期待: { success: false, error: "News not found" } + 404
+
+# 存在しない ID は 404
+curl -s -w "\n%{http_code}" http://localhost:3100/api/v1/news/999
+# 期待: { success: false, error: "News not found" } + 404
+
+# 不正な category 値は 400
+curl -s -w "\n%{http_code}" "http://localhost:3100/api/v1/news?category=invalid"
+# 期待: { success: false, error: "Invalid category" } + 400
+```
+
+確認項目:
+- [ ] 一覧の `total` が 6 (= 8 件中、未来 #8 を除く 7 件のうち 1 件も除かれない)。公開日時降順
+- [ ] カテゴリフィルタで store のみ返る
+- [ ] ページネーションで menu が `pages: 2` になる
+- [ ] 詳細レスポンスの `body` に改行 `\n` が保持されている
+- [ ] 未来 #8 が一覧にも詳細にも出ない
+- [ ] 存在しない ID で 404
+- [ ] 不正カテゴリで 400
+
+#### 4-7-2 Web 画面検証
+
+| URL | 確認項目 |
+|---|---|
+| `http://localhost:3002/` | トップに「お知らせ」セクションが表示され、最新 3 件 (公開日・カテゴリバッジ・タイトル) が見える。「もっと見る」クリックで `/news` へ遷移 |
+| `http://localhost:3002/news` | 一覧ページ。カテゴリタブ (すべて / 店舗 / 新メニュー / キャンペーン / アプリ) が機能する。公開済み 6 件のみ表示 (#8 未表示) |
+| `http://localhost:3002/news?category=store` | store カテゴリのみ 2 件 |
+| `http://localhost:3002/news/1` | 詳細。タイトル + カテゴリバッジ + 公開日 + 本文 (改行反映) |
+| `http://localhost:3002/news/8` | not-found ページ (Next.js の 404) |
+| `http://localhost:3002/news/999` | not-found ページ |
+| 画面上部のヘッダー | 「お知らせ」リンクが NAV に追加され、現在ページの時に primary 色でハイライト |
+
+確認項目:
+- [ ] カテゴリーごとにバッジ色が変わる (店舗=青、新メニュー=primary、キャンペーン=secondary、アプリ=緑)
+- [ ] 詳細ページの本文で改行が正しく表示される (`white-space: pre-wrap`)
+- [ ] 一覧のページネーション (`pages > 1` のとき番号リンクが出る)
+
+---
+
 ## 5. Android エミュレーター検証手順
 
 ### エミュレーター起動からアプリ確認までの手順
