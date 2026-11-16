@@ -6,10 +6,11 @@ import { useAdminAuth } from '@/hooks/useAdminAuth'
 import clsx from 'clsx'
 
 const NAV = [
-  { href: '/admin/dashboard', label: 'ダッシュボード', icon: '📊' },
-  { href: '/admin/orders',    label: '注文管理',       icon: '📋' },
-  { href: '/admin/burgers',   label: 'バーガー管理',   icon: '🍔' },
-  { href: '/admin/users',     label: 'ユーザー管理',   icon: '👥' },
+  { href: '/admin/dashboard',        label: 'ダッシュボード', icon: '📊' },
+  { href: '/admin/orders',           label: '注文管理',       icon: '📋' },
+  { href: '/admin/burgers',          label: 'バーガー管理',   icon: '🍔' },
+  { href: '/admin/users',            label: 'ユーザー管理',   icon: '👥' },
+  { href: '/admin/pickup-settings',  label: '枠設定',         icon: '🕒' },
 ]
 
 export default function AdminSidebar() {

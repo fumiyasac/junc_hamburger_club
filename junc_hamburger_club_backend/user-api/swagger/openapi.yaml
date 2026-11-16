@@ -26,6 +26,8 @@ tags:
     description: ユーザープロフィール
   - name: News
     description: 店舗からのお知らせ (認証不要)
+  - name: Pickup
+    description: 受け取り枠 (pickup slot) の取得。認証不要
 
 components:
   securitySchemes:
@@ -224,6 +226,11 @@ components:
           type: string
           format: date-time
           nullable: true
+        pickupAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 受け取り予定時刻 (JST, ISO 8601 with offset)。pickupAt 未指定で作成された注文では null
         createdAt:
           type: string
           format: date-time
@@ -234,6 +241,45 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/OrderItem'
+
+    PickupSlot:
+      type: object
+      required: [startAt, available, remaining, reason]
+      properties:
+        startAt:
+          type: string
+          format: date-time
+          description: 枠の開始時刻 (JST, ISO 8601 with offset)
+        available:
+          type: boolean
+          description: この枠を選択できるか
+        remaining:
+          type: integer
+          description: 残り受付可能件数 (capacity - reserved)
+        reason:
+          type: string
+          nullable: true
+          enum: [lead_time, out_of_hours, full, past, past_lookahead]
+          description: 選択不可の理由コード。available=true の場合は null
+
+    PickupSlotList:
+      type: object
+      required: [date, closed, slots]
+      properties:
+        date:
+          type: string
+          example: "2026-11-16"
+        closed:
+          type: boolean
+          description: その日全体が利用不可の場合 true
+        closedReason:
+          type: string
+          nullable: true
+          enum: [closed_weekday, past, past_lookahead]
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/PickupSlot'
 
     NewsCategory:
       type: string
@@ -624,6 +670,10 @@ paths:
     post:
       tags: [Orders]
       summary: 注文作成 (カートから注文)
+      description: |
+        カートの内容から注文を作成する。
+        pickupAt を指定すると受け取り枠を予約する。pickupAt は後方互換のため任意だが、
+        新規クライアントでは必須指定を推奨 (将来必須化予定)。
       security:
         - BearerAuth: []
       requestBody:
@@ -635,6 +685,20 @@ paths:
                 notes:
                   type: string
                   example: "ソース多めでお願いします"
+                pickupAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  description: |
+                    受け取り予定時刻 (JST, ISO 8601 with offset)。
+                    - 15 分刻みの境界に一致しない: 400 (code=pickup_boundary)
+                    - 定休日: 400 (code=pickup_closed_day)
+                    - lookahead 超過: 400 (code=pickup_past_lookahead)
+                    - 営業時間外: 400 (code=pickup_out_of_hours)
+                    - リードタイム内: 400 (code=pickup_lead_time)
+                    - フォーマット不正: 400 (code=pickup_invalid_format)
+                    - 枠が満杯: 409 (code=pickup_slot_full)
+                  example: "2026-11-16T12:00:00+09:00"
       responses:
         '201':
           description: 注文成功
@@ -648,11 +712,33 @@ paths:
                   data:
                     $ref: '#/components/schemas/Order'
         '400':
-          description: カートが空
+          description: カートが空、または pickupAt 検証エラー (code フィールドで詳細判別)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    description: pickup_invalid_format / pickup_boundary / pickup_closed_day / pickup_past_lookahead / pickup_out_of_hours / pickup_lead_time のいずれか (pickupAt 検証失敗時)
+        '409':
+          description: 指定した受け取り枠が満杯 (code=pickup_slot_full)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum: [pickup_slot_full]
     get:
       tags: [Orders]
       summary: 注文履歴取得
@@ -926,6 +1012,41 @@ paths:
                     $ref: '#/components/schemas/News'
         '404':
           description: 存在しない / 未公開
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ── Pickup slots (public) ────────────────────────────────────────────
+  /pickup-slots:
+    get:
+      tags: [Pickup]
+      summary: 受け取り枠一覧取得
+      description: |
+        指定日の受け取り枠一覧を返す。枠ごとに「選択可否」「残り受付可能数」「不可理由」を含む。
+        認証不要。
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: JST の暦日 (YYYY-MM-DD)
+      responses:
+        '200':
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/PickupSlotList'
+        '400':
+          description: date 未指定または形式エラー
           content:
             application/json:
               schema:

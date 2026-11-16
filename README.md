@@ -808,6 +808,9 @@ http://localhost:3100/api-docs
 | GET | `/api/v1/orders` | 注文履歴 | Bearer JWT |
 | GET | `/api/v1/orders/:orderId` | 注文詳細 | Bearer JWT |
 | GET | `/api/v1/users/me` | プロフィール取得 | Bearer JWT |
+| GET | `/api/v1/pickup-slots?date=YYYY-MM-DD` | 受け取り枠一覧 (JST 暦日) | 不要 |
+
+注: `POST /api/v1/orders` のリクエスト body に `pickupAt` (ISO 8601 with offset) を含めると受け取り枠を予約する。計算ルールは `docs/pickup_slot_rules.md` を参照。
 
 ### Admin API ドキュメント
 
@@ -827,6 +830,10 @@ OpenAPI 仕様書: `junc_hamburger_club_backend/admin-api/docs/swagger.yaml`
 | PUT | `/orders/:id/status` | 注文ステータス更新 |
 | GET | `/users` | ユーザー一覧 |
 | PUT | `/users/:id/toggle` | ユーザー有効/無効切り替え |
+| GET | `/pickup-settings` | 枠設定取得 |
+| PUT | `/pickup-settings` | 枠設定更新 |
+| GET | `/pickup-slots?date=` | 枠ごとの予約件数 (管理画面タイムライン用) |
+| GET | `/orders?pickupDate=&sort=pickup_at` | 受け取り日フィルタ・時刻順ソート対応 |
 
 ### API の手動テスト (curl)
 

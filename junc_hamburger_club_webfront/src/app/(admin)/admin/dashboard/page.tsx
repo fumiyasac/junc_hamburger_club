@@ -3,14 +3,15 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAdminAuth } from '@/hooks/useAdminAuth'
-import { adminDashboardApi } from '@/lib/api'
-import { DashboardStats } from '@/lib/types'
-import { formatPrice } from '@/lib/utils'
+import { adminDashboardApi, adminPickupApi } from '@/lib/api'
+import { DashboardStats, AdminPickupSlotList } from '@/lib/types'
+import { formatPrice, formatPickupTime, toJstDateKey } from '@/lib/utils'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 
 export default function DashboardPage() {
   const { token, isLoading, isAuthenticated } = useAdminAuth()
   const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [pickupSlots, setPickupSlots] = useState<AdminPickupSlotList | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -23,6 +24,9 @@ export default function DashboardPage() {
     if (token) {
       adminDashboardApi.stats(token)
         .then(setStats)
+        .catch(console.error)
+      adminPickupApi.slots(token, toJstDateKey())
+        .then(setPickupSlots)
         .catch(console.error)
     }
   }, [token])
@@ -82,11 +86,60 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+
+            {/* 本日の受け取り予定タイムライン */}
+            <div className="card p-6 mt-6">
+              <h2 className="font-bold text-lg mb-4">本日の受け取り予定</h2>
+              {pickupSlots === null ? (
+                <p className="text-gray-400 text-sm">読み込み中...</p>
+              ) : pickupSlots.closed ? (
+                <p className="text-gray-400 text-sm">本日は営業時間外です (reason: {pickupSlots.closedReason})</p>
+              ) : pickupSlots.slots.length === 0 ? (
+                <p className="text-gray-400 text-sm">本日の枠はありません</p>
+              ) : (
+                <PickupTimeline slots={pickupSlots.slots} />
+              )}
+            </div>
           </>
         ) : (
           <div className="text-center py-20 text-gray-400">読み込み中...</div>
         )}
       </main>
+    </div>
+  )
+}
+
+function PickupTimeline({ slots }: { slots: AdminPickupSlotList['slots'] }) {
+  // 混雑度: 0 → 空、50%未満 → 緑、80%未満 → 黄、それ以上 → 赤
+  function cellColor(reserved: number, capacity: number): string {
+    if (reserved === 0) return 'bg-gray-50 text-gray-400'
+    const r = reserved / capacity
+    if (r < 0.5) return 'bg-green-100 text-green-800'
+    if (r < 0.8) return 'bg-yellow-100 text-yellow-800'
+    return 'bg-red-100 text-red-800'
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <div className="flex gap-1 min-w-max">
+        {slots.map((slot) => (
+          <div
+            key={slot.startAt}
+            className={`flex flex-col items-center px-3 py-2 rounded-lg text-xs font-bold ${cellColor(slot.reservedCount, slot.capacity)}`}
+          >
+            <span>{formatPickupTime(slot.startAt)}</span>
+            <span className="mt-1">
+              {slot.reservedCount}/{slot.capacity}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 text-xs text-gray-500 flex gap-3 flex-wrap">
+        <span>空: 白</span>
+        <span className="text-green-700">50%未満: 緑</span>
+        <span className="text-yellow-700">80%未満: 黄</span>
+        <span className="text-red-700">80%以上: 赤</span>
+      </div>
     </div>
   )
 }

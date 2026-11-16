@@ -32,7 +32,10 @@ func Load() *Config {
 }
 
 func NewDB(cfg *Config) (*sql.DB, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&loc=Asia%%2FTokyo&charset=utf8mb4",
+	// time_zone='+09:00' は MySQL セッションの TZ を JST に揃える (user-api の
+	// mysql2 pool と対称)。loc=Asia/Tokyo は driver 内の time.Time 変換のみで、
+	// これだけでは MySQL が TIMESTAMP を UTC 解釈し続けるため両方が必要。
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&loc=Asia%%2FTokyo&charset=utf8mb4&time_zone=%%27%%2B09%%3A00%%27",
 		cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBPort, cfg.DBName)
 
 	db, err := sql.Open("mysql", dsn)
