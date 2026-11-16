@@ -465,6 +465,118 @@ curl -s http://localhost:3000/api/v1/orders \
 
 ---
 
+### 4-8 受け取り枠 (Pickup Slot) の検証
+
+**事前条件**
+- `04_pickup_slot_migration.sql` を適用済み、または `docker compose down -v && up -d --build` 済み
+- user-api / admin-api が稼働中
+- JST 午前中 (リードタイム判定の確認に午後では当日枠が全て埋まる)
+
+#### 4-8-1 User API: 枠一覧と注文
+
+```bash
+TODAY=$(TZ=Asia/Tokyo date +%Y-%m-%d)
+TOMORROW=$(TZ=Asia/Tokyo date -v+1d +%Y-%m-%d 2>/dev/null || TZ=Asia/Tokyo date -d "+1 day" +%Y-%m-%d)
+
+# 枠一覧 (明日の全 40 枠)
+curl -s "http://localhost:3100/api/v1/pickup-slots?date=$TOMORROW" | jq '.data | {closed, count: (.slots | length), first: .slots[0], last: .slots[-1]}'
+# 期待: closed=false, count=40, first=11:00, last=20:45
+
+# lookahead 超過
+curl -s "http://localhost:3100/api/v1/pickup-slots?date=$(TZ=Asia/Tokyo date -v+10d +%Y-%m-%d)" | jq '.data.closedReason'
+# 期待: "past_lookahead"
+
+# date 未指定で 400
+curl -s -w "\n%{http_code}" "http://localhost:3100/api/v1/pickup-slots"
+# 期待: 400
+
+# 注文の pickupAt エラーケース (ユーザー作成 + カート追加後)
+curl -s -X POST http://localhost:3100/api/v1/orders -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "{\"pickupAt\":\"${TOMORROW}T11:07:00+09:00\"}" | jq .
+# 期待: { success:false, error:"Invalid pickupAt", code:"pickup_boundary" } + 400
+
+curl -s -X POST http://localhost:3100/api/v1/orders -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "{\"pickupAt\":\"${TOMORROW}T10:00:00+09:00\"}" | jq .
+# 期待: code=pickup_out_of_hours + 400
+
+# 正常系
+curl -s -X POST http://localhost:3100/api/v1/orders -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "{\"pickupAt\":\"${TOMORROW}T12:00:00+09:00\"}" | jq '.data.pickupAt'
+# 期待: "2026-11-17T12:00:00+09:00" (指定時刻がそのまま返る)
+```
+
+確認項目:
+- [ ] 枠は 11:00〜20:45 まで 15 分刻み・計 40 枠
+- [ ] 定休日は `closed: true, closedReason: "closed_weekday"`
+- [ ] lookahead_days=3 で 3 日先は `past_lookahead`
+- [ ] 境界不一致・営業時間外・リードタイム・枠満杯の各ケースで `code` 付きの 400/409 が返る
+- [ ] 正常作成時に `pickupAt` が ISO 8601 (+09:00 offset) で保存・返却される
+
+#### 4-8-2 並列定員超過テスト
+
+10 並列で定員 4 の枠に注文を送信し、**4 件のみ成功 (201) / 6 件が枠満杯 (409)** となることを確認。
+
+```bash
+# 10 ユーザー準備
+for i in $(seq 1 10); do
+  TS=$(date +%s%N)
+  curl -s -X POST http://localhost:3100/api/v1/auth/register -H "Content-Type: application/json" \
+    -d "{\"name\":\"u$i\",\"email\":\"par${TS}@example.com\",\"password\":\"password123\"}" > "/tmp/r_$i.json"
+  TOKEN=$(jq -r .data.token "/tmp/r_$i.json")
+  echo "$TOKEN" > "/tmp/tok_$i.txt"
+  curl -s -X POST http://localhost:3100/api/v1/cart -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"burgerId":"1","quantity":1}' > /dev/null
+done
+
+# 並列送信
+SLOT="${TOMORROW}T15:30:00+09:00"
+rm -f /tmp/par_results.log
+seq 1 10 | xargs -P 10 -I{} bash -c '
+  TOKEN=$(cat /tmp/tok_{}.txt)
+  curl -s -w "%{http_code}\n" -o /dev/null -X POST http://localhost:3100/api/v1/orders \
+    -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+    -d "{\"pickupAt\":\"'"$SLOT"'\"}"
+' >> /tmp/par_results.log
+
+sort /tmp/par_results.log | uniq -c
+# 期待: 4 201 + 6 409
+```
+
+#### 4-8-3 Admin API: 枠設定と反映
+
+```bash
+# admin ログインしてトークン取得 (事前に ADMIN_EMAIL / ADMIN_PASSWORD_HASH env が設定されていること)
+ATOKEN=...
+
+# 現在の設定取得
+curl -s -H "Authorization: Bearer $ATOKEN" http://localhost:8080/api/v1/admin/pickup-settings | jq
+
+# slot_capacity を 8 に更新
+curl -s -X PUT -H "Authorization: Bearer $ATOKEN" -H "Content-Type: application/json" \
+  -d '{"slotIntervalMin":15,"slotCapacity":8,"leadTimeMin":20,"lookaheadDays":3,"openTime":"11:00:00","closeTime":"21:00:00","closedWeekdays":""}' \
+  http://localhost:8080/api/v1/admin/pickup-settings
+
+# User API の枠一覧に反映
+curl -s "http://localhost:3100/api/v1/pickup-slots?date=$TOMORROW" | jq '.data.slots[0]'
+# 期待: remaining=8 (元 4 → 8)
+
+# 不正値 (open >= close) で 400
+curl -s -w "\n%{http_code}" -X PUT -H "Authorization: Bearer $ATOKEN" -H "Content-Type: application/json" \
+  -d '{"slotIntervalMin":15,"slotCapacity":4,"leadTimeMin":20,"lookaheadDays":3,"openTime":"21:00:00","closeTime":"11:00:00","closedWeekdays":""}' \
+  http://localhost:8080/api/v1/admin/pickup-settings
+# 期待: 400
+```
+
+#### 4-8-4 Web 管理画面
+
+| URL | 確認項目 |
+|---|---|
+| `http://localhost:3002/admin/dashboard` | 「本日の受け取り予定」セクションに枠タイムライン表示。混雑度で色分け |
+| `http://localhost:3002/admin/orders` | 受け取り時刻列 / 受け取り日フィルタ / 時刻順ソートが機能。時刻超過 かつ ready/completed でない注文が赤枠で強調 |
+| `http://localhost:3002/admin/pickup-settings` | 設定フォーム。保存→成功メッセージ。不正値で 400 のエラー表示 |
+| サイドバーの「枠設定」リンク | 現在ページでハイライト |
+
+---
+
 ### 4-7 お知らせ (News) の検証
 
 **事前条件**

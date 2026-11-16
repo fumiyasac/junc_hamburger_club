@@ -18,6 +18,23 @@ export function formatDate(dateStr: string): string {
   })
 }
 
+/** JST 時刻を "HH:MM" で返す */
+export function formatPickupTime(isoStr: string): string {
+  return new Date(isoStr).toLocaleTimeString('ja-JP', {
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Tokyo',
+  })
+}
+
+/** JST 日付を "YYYY-MM-DD" で返す (API の date クエリ用) */
+export function toJstDateKey(d: Date = new Date()): string {
+  const jstMs = d.getTime() + 9 * 60 * 60 * 1000
+  const jst = new Date(jstMs)
+  const y = jst.getUTCFullYear()
+  const m = String(jst.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(jst.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${dd}`
+}
+
 // ── News カテゴリー ─────────────────────────────────────────────────────────
 
 import type { NewsCategory } from './types'

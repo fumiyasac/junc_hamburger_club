@@ -59,9 +59,55 @@ export interface Order {
   taxAmount: number
   notes: string | null
   estimatedReadyAt: string | null
+  pickupAt: string | null
   createdAt: string
   updatedAt: string
   items: OrderItem[]
+}
+
+export interface PickupSettings {
+  id: string
+  storeId: string
+  slotIntervalMin: number
+  slotCapacity: number
+  leadTimeMin: number
+  lookaheadDays: number
+  openTime: string          // 'HH:MM:SS'
+  closeTime: string
+  closedWeekdays: string    // CSV "0,6"
+}
+
+export type PickupSlotReason = 'lead_time' | 'out_of_hours' | 'full' | 'past' | 'past_lookahead'
+
+export interface PickupSlot {
+  startAt: string
+  available: boolean
+  remaining: number
+  reason: PickupSlotReason | null
+}
+
+export interface PickupSlotList {
+  date: string
+  closed: boolean
+  closedReason: 'closed_weekday' | 'past' | 'past_lookahead' | null
+  slots: PickupSlot[]
+}
+
+// ── 管理画面向け枠サマリ ──────────────────────────────────────
+// 注意: user-api の GET /pickup-slots (選択可否) と admin-api の GET /pickup-slots (生カウンタ)
+// はパスは同じだが返却形状が異なる。クライアント側で混同しないよう別型を分けている。
+// 詳細は docs/pickup_slot_rules.md 参照。
+export interface AdminPickupSlotSummary {
+  startAt: string
+  reservedCount: number
+  capacity: number
+}
+
+export interface AdminPickupSlotList {
+  date: string
+  closed: boolean
+  closedReason: string | null
+  slots: AdminPickupSlotSummary[]
 }
 
 export interface User {

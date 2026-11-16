@@ -140,6 +140,14 @@ INSERT INTO burger_tags (burger_id, tag) VALUES
 (20, 'シグネチャー'), (20, '最高傑作'), (20, '限定'), (20, 'JUNC');
 
 -- ────────────────────────────────────────
+-- Pickup Settings (1 店舗のデフォルト)
+-- ────────────────────────────────────────
+INSERT INTO pickup_settings
+  (id, store_id, slot_interval_min, slot_capacity, lead_time_min, lookahead_days, open_time, close_time, closed_weekdays)
+VALUES
+  (1, 1, 15, 4, 20, 3, '11:00:00', '21:00:00', '');
+
+-- ────────────────────────────────────────
 -- News (お知らせ) — 初期 8 件
 -- カテゴリーごとに 2 件、公開日は 2026-09 〜 2026-11 に分散、
 -- 1 件 (#8) は未来日時 (2026-12-15) で予約公開除外の確認用。

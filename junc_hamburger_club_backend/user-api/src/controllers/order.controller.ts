@@ -1,7 +1,9 @@
 import { Response } from 'express';
 import { pool } from '../config/database';
-import { AuthRequest, OrderRow, OrderItemRow } from '../types';
+import { AuthRequest, OrderRow, OrderItemRow, PickupSettingsRow } from '../types';
 import { RowDataPacket } from 'mysql2';
+import { settingsFromRow, validatePickupAt } from '../lib/pickup_rules';
+import { formatJstIso } from './pickup.controller';
 
 function generateOrderNumber(): string {
   const date = new Date();
@@ -19,6 +21,7 @@ function formatOrder(order: OrderRow, items: OrderItemRow[]) {
     taxAmount: parseFloat(order.tax_amount),
     notes: order.notes,
     estimatedReadyAt: order.estimated_ready_at,
+    pickupAt: order.pickup_at ? formatJstIso(order.pickup_at) : null,
     createdAt: order.created_at,
     updatedAt: order.updated_at,
     items: items.map((i) => ({
@@ -35,11 +38,63 @@ function formatOrder(order: OrderRow, items: OrderItemRow[]) {
 
 export async function createOrder(req: AuthRequest, res: Response): Promise<void> {
   const userId = req.user!.userId;
-  const { notes } = req.body as { notes?: string };
+  const { notes, pickupAt } = req.body as { notes?: string; pickupAt?: string };
+
+  // ─── pickupAt 検証 (DB 接続前にできるものは先に) ────────────────
+  let normalizedPickupAt: Date | null = null;
+
+  if (pickupAt) {
+    const [settingsRows] = await pool.query<RowDataPacket[]>(
+      'SELECT * FROM pickup_settings WHERE store_id = 1',
+    );
+    if (settingsRows.length === 0) {
+      res.status(500).json({ success: false, error: 'Pickup settings not configured' });
+      return;
+    }
+    const settings = settingsFromRow(settingsRows[0] as PickupSettingsRow);
+    const validation = validatePickupAt(pickupAt, settings, new Date());
+    if (!validation.ok) {
+      res.status(400).json({ success: false, error: 'Invalid pickupAt', code: validation.code });
+      return;
+    }
+    normalizedPickupAt = validation.pickupAt;
+  }
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+
+    // ─── 枠カウンタのロック取得 (pickupAt 指定時のみ) ───────────────
+    if (normalizedPickupAt) {
+      // UPSERT で行を作り、FOR UPDATE で改めて取得する
+      await conn.query(
+        `INSERT INTO pickup_slot_counters (store_id, slot_at, reserved_count)
+         VALUES (1, ?, 0)
+         ON DUPLICATE KEY UPDATE store_id = store_id`,
+        [normalizedPickupAt],
+      );
+      const [counterRows] = await conn.query<RowDataPacket[]>(
+        'SELECT reserved_count FROM pickup_slot_counters WHERE store_id = 1 AND slot_at = ? FOR UPDATE',
+        [normalizedPickupAt],
+      );
+      const reserved = (counterRows[0] as { reserved_count: number }).reserved_count;
+
+      const [capacityRows] = await conn.query<RowDataPacket[]>(
+        'SELECT slot_capacity FROM pickup_settings WHERE store_id = 1',
+      );
+      const capacity = (capacityRows[0] as { slot_capacity: number }).slot_capacity;
+
+      if (reserved >= capacity) {
+        await conn.rollback();
+        res.status(409).json({ success: false, error: 'Pickup slot is full', code: 'pickup_slot_full' });
+        return;
+      }
+
+      await conn.query(
+        'UPDATE pickup_slot_counters SET reserved_count = reserved_count + 1 WHERE store_id = 1 AND slot_at = ?',
+        [normalizedPickupAt],
+      );
+    }
 
     // Get cart items
     const [cartRows] = await conn.query<RowDataPacket[]>(
@@ -63,9 +118,9 @@ export async function createOrder(req: AuthRequest, res: Response): Promise<void
     const estimatedReadyAt = new Date(Date.now() + 20 * 60 * 1000); // 20 min
 
     const [orderResult] = await conn.query(
-      `INSERT INTO orders (user_id, order_number, status, total_amount, tax_amount, notes, estimated_ready_at)
-       VALUES (?, ?, 'received', ?, ?, ?, ?)`,
-      [userId, orderNumber, totalAmount.toFixed(2), taxAmount.toFixed(2), notes ?? null, estimatedReadyAt]
+      `INSERT INTO orders (user_id, order_number, status, total_amount, tax_amount, notes, estimated_ready_at, pickup_at)
+       VALUES (?, ?, 'received', ?, ?, ?, ?, ?)`,
+      [userId, orderNumber, totalAmount.toFixed(2), taxAmount.toFixed(2), notes ?? null, estimatedReadyAt, normalizedPickupAt]
     );
     const orderId = (orderResult as { insertId: number }).insertId;
 
@@ -150,26 +205,47 @@ export async function cancelOrder(req: AuthRequest, res: Response): Promise<void
   const userId = req.user!.userId;
   const { orderId } = req.params;
 
-  const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT status FROM orders WHERE id = ? AND user_id = ?",
-    [orderId, userId]
-  );
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
 
-  if (rows.length === 0) {
-    res.status(404).json({ success: false, error: 'Order not found' });
-    return;
+    const [rows] = await conn.query<RowDataPacket[]>(
+      "SELECT status, pickup_at FROM orders WHERE id = ? AND user_id = ? FOR UPDATE",
+      [orderId, userId]
+    );
+
+    if (rows.length === 0) {
+      await conn.rollback();
+      res.status(404).json({ success: false, error: 'Order not found' });
+      return;
+    }
+
+    const { status, pickup_at } = rows[0] as { status: string; pickup_at: Date | null };
+    if (!['received'].includes(status)) {
+      await conn.rollback();
+      res.status(400).json({ success: false, error: 'Cannot cancel order in current status' });
+      return;
+    }
+
+    await conn.query(
+      "UPDATE orders SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [orderId]
+    );
+
+    // 枠カウンタの減算 (pickup_at があるキャンセルのみ)
+    if (pickup_at) {
+      await conn.query(
+        'UPDATE pickup_slot_counters SET reserved_count = GREATEST(reserved_count - 1, 0) WHERE store_id = 1 AND slot_at = ?',
+        [pickup_at],
+      );
+    }
+
+    await conn.commit();
+    res.json({ success: true, message: 'Order cancelled' });
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
   }
-
-  const { status } = rows[0] as { status: string };
-  if (!['received'].includes(status)) {
-    res.status(400).json({ success: false, error: 'Cannot cancel order in current status' });
-    return;
-  }
-
-  await pool.query(
-    "UPDATE orders SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-    [orderId]
-  );
-
-  res.json({ success: true, message: 'Order cancelled' });
 }

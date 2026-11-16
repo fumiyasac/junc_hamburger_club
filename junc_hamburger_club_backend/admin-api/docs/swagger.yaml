@@ -23,6 +23,8 @@ tags:
     description: 注文管理・ステータス更新
   - name: Users
     description: ユーザー管理
+  - name: Pickup
+    description: 受け取り枠 (pickup slot) の管理
 
 components:
   securitySchemes:
@@ -199,6 +201,11 @@ components:
           type: string
           format: date-time
           nullable: true
+        pickupAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 受け取り予定時刻 (JST, ISO 8601 with offset)
         createdAt:
           type: string
           format: date-time
@@ -249,6 +256,38 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    PickupSettings:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        storeId:
+          type: string
+          example: "1"
+        slotIntervalMin:
+          type: integer
+          example: 15
+        slotCapacity:
+          type: integer
+          example: 4
+        leadTimeMin:
+          type: integer
+          example: 20
+        lookaheadDays:
+          type: integer
+          example: 3
+        openTime:
+          type: string
+          example: "11:00:00"
+        closeTime:
+          type: string
+          example: "21:00:00"
+        closedWeekdays:
+          type: string
+          description: "CSV of 0..6 (0=Sunday). Empty string = no closed day"
+          example: ""
 
     Pagination:
       type: object
@@ -482,6 +521,19 @@ paths:
           schema:
             type: string
             enum: [received, preparing, ready, completed, cancelled]
+        - name: pickupDate
+          in: query
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: JST 暦日。この日の pickup_at を持つ注文のみ返す
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [created_at, pickup_at]
+            default: created_at
+          description: pickup_at 指定時は pickup_at ASC, created_at DESC 順
         - name: page
           in: query
           schema:
@@ -642,3 +694,89 @@ paths:
       responses:
         '200':
           description: 切り替え成功
+
+  # ── Pickup settings & slots ─────────────────────────────────────────
+  /pickup-settings:
+    get:
+      tags: [Pickup]
+      summary: 受け取り枠の設定取得
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 設定
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/PickupSettings'
+    put:
+      tags: [Pickup]
+      summary: 受け取り枠の設定更新
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PickupSettings'
+      responses:
+        '200':
+          description: 更新成功
+        '400':
+          description: バリデーションエラー (slotIntervalMin<=0, openTime>=closeTime 等)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /pickup-slots:
+    get:
+      tags: [Pickup]
+      summary: 枠ごとの予約件数一覧 (管理画面タイムライン用)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+      responses:
+        '200':
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                      closed:
+                        type: boolean
+                      closedReason:
+                        type: string
+                        nullable: true
+                      slots:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            startAt:
+                              type: string
+                              format: date-time
+                            reservedCount:
+                              type: integer
+                            capacity:
+                              type: integer

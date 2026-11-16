@@ -74,7 +74,21 @@ export interface OrderRow {
   tax_amount: string;
   notes: string | null;
   estimated_ready_at: Date | null;
+  pickup_at: Date | null;
   created_at: Date;
+  updated_at: Date;
+}
+
+export interface PickupSettingsRow {
+  id: number;
+  store_id: number;
+  slot_interval_min: number;
+  slot_capacity: number;
+  lead_time_min: number;
+  lookahead_days: number;
+  open_time: string;  // 'HH:MM:SS'
+  close_time: string;
+  closed_weekdays: string;  // '' or '0,6' CSV
   updated_at: Date;
 }
 

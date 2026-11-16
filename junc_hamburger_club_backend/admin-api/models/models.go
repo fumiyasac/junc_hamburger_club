@@ -52,9 +52,28 @@ type Order struct {
 	TaxAmount        float64     `json:"taxAmount"`
 	Notes            *string     `json:"notes"`
 	EstimatedReadyAt *time.Time  `json:"estimatedReadyAt"`
+	PickupAt         *time.Time  `json:"pickupAt"`
 	CreatedAt        time.Time   `json:"createdAt"`
 	UpdatedAt        time.Time   `json:"updatedAt"`
 	Items            []OrderItem `json:"items"`
+}
+
+type PickupSettings struct {
+	ID               int    `json:"id,string"`
+	StoreID          int    `json:"storeId,string"`
+	SlotIntervalMin  int    `json:"slotIntervalMin"`
+	SlotCapacity     int    `json:"slotCapacity"`
+	LeadTimeMin      int    `json:"leadTimeMin"`
+	LookaheadDays    int    `json:"lookaheadDays"`
+	OpenTime         string `json:"openTime"`  // "HH:MM:SS"
+	CloseTime        string `json:"closeTime"`
+	ClosedWeekdays   string `json:"closedWeekdays"` // CSV "0,6"
+}
+
+type AdminPickupSlotSummary struct {
+	StartAt       time.Time `json:"startAt"`
+	ReservedCount int       `json:"reservedCount"`
+	Capacity      int       `json:"capacity"`
 }
 
 type OrderItem struct {

@@ -146,8 +146,14 @@ export const adminBurgerApi = {
 }
 
 export const adminOrderApi = {
-  list: (token: string, status?: string, page = 1) => {
-    const qs = new URLSearchParams({ page: String(page), ...(status ? { status } : {}) })
+  list: (
+    token: string,
+    opts?: { status?: string; pickupDate?: string; sort?: 'created_at' | 'pickup_at'; page?: number },
+  ) => {
+    const qs = new URLSearchParams({ page: String(opts?.page ?? 1) })
+    if (opts?.status) qs.set('status', opts.status)
+    if (opts?.pickupDate) qs.set('pickupDate', opts.pickupDate)
+    if (opts?.sort) qs.set('sort', opts.sort)
     return request<{ orders: import('./types').AdminOrder[]; pagination: import('./types').PaginationMeta }>(
       `${ADMIN_API}/orders?${qs}`,
       { headers: authHeader(token) }
@@ -181,4 +187,21 @@ export const adminUserApi = {
 export const adminDashboardApi = {
   stats: (token: string) =>
     request<import('./types').DashboardStats>(`${ADMIN_API}/dashboard`, { headers: authHeader(token) }),
+}
+
+export const adminPickupApi = {
+  getSettings: (token: string) =>
+    request<import('./types').PickupSettings>(`${ADMIN_API}/pickup-settings`, {
+      headers: authHeader(token),
+    }),
+  updateSettings: (token: string, settings: Omit<import('./types').PickupSettings, 'id' | 'storeId'>) =>
+    request<unknown>(`${ADMIN_API}/pickup-settings`, {
+      method: 'PUT',
+      headers: authHeader(token),
+      body: JSON.stringify(settings),
+    }),
+  slots: (token: string, date: string) =>
+    request<import('./types').AdminPickupSlotList>(`${ADMIN_API}/pickup-slots?date=${date}`, {
+      headers: authHeader(token),
+    }),
 }

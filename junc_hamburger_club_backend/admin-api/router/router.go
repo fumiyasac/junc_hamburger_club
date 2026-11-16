@@ -26,6 +26,7 @@ func Setup(db *sql.DB, cfg *config.Config) *gin.Engine {
 	orderH := &handlers.OrderHandler{DB: db}
 	userH := &handlers.UserHandler{DB: db}
 	dashH := &handlers.DashboardHandler{DB: db}
+	pickupH := &handlers.PickupHandler{DB: db}
 
 	api := r.Group("/api/v1/admin")
 
@@ -50,6 +51,10 @@ func Setup(db *sql.DB, cfg *config.Config) *gin.Engine {
 		protected.GET("/users", userH.ListUsers)
 		protected.GET("/users/:id", userH.GetUser)
 		protected.PUT("/users/:id/toggle", userH.ToggleUserActive)
+
+		protected.GET("/pickup-settings", pickupH.GetSettings)
+		protected.PUT("/pickup-settings", pickupH.UpdateSettings)
+		protected.GET("/pickup-slots", pickupH.GetSlots)
 	}
 
 	return r

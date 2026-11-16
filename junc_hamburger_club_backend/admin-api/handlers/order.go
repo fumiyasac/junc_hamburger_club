@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/junc/admin-api/models"
@@ -15,15 +16,32 @@ type OrderHandler struct {
 
 func (h *OrderHandler) ListOrders(c *gin.Context) {
 	status := c.Query("status")
+	pickupDate := c.Query("pickupDate") // YYYY-MM-DD, JST
+	sortKey := c.DefaultQuery("sort", "created_at")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset := (page - 1) * limit
 
-	where := ""
+	// 動的 WHERE
+	wheres := []string{}
 	args := []interface{}{}
 	if status != "" {
-		where = "WHERE o.status = ?"
+		wheres = append(wheres, "o.status = ?")
 		args = append(args, status)
+	}
+	if pickupDate != "" {
+		wheres = append(wheres, "o.pickup_at >= ? AND o.pickup_at < DATE_ADD(?, INTERVAL 1 DAY)")
+		args = append(args, pickupDate+" 00:00:00", pickupDate+" 00:00:00")
+	}
+	where := ""
+	if len(wheres) > 0 {
+		where = "WHERE " + strings.Join(wheres, " AND ")
+	}
+
+	// ソートキーの allowlist
+	orderBy := "o.created_at DESC"
+	if sortKey == "pickup_at" {
+		orderBy = "o.pickup_at ASC, o.created_at DESC"
 	}
 
 	var total int
@@ -33,11 +51,12 @@ func (h *OrderHandler) ListOrders(c *gin.Context) {
 	args = append(args, limit, offset)
 	rows, err := h.DB.Query(`
 		SELECT o.id, o.user_id, u.name, u.email, o.order_number, o.status,
-		       o.total_amount, o.tax_amount, o.notes, o.estimated_ready_at, o.created_at, o.updated_at
+		       o.total_amount, o.tax_amount, o.notes, o.estimated_ready_at, o.pickup_at,
+		       o.created_at, o.updated_at
 		FROM orders o
 		JOIN users u ON o.user_id = u.id
 		`+where+`
-		ORDER BY o.created_at DESC
+		ORDER BY `+orderBy+`
 		LIMIT ? OFFSET ?`, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
@@ -49,7 +68,7 @@ func (h *OrderHandler) ListOrders(c *gin.Context) {
 	for rows.Next() {
 		var o models.Order
 		if err := rows.Scan(&o.ID, &o.UserID, &o.UserName, &o.UserEmail, &o.OrderNumber,
-			&o.Status, &o.TotalAmount, &o.TaxAmount, &o.Notes, &o.EstimatedReadyAt,
+			&o.Status, &o.TotalAmount, &o.TaxAmount, &o.Notes, &o.EstimatedReadyAt, &o.PickupAt,
 			&o.CreatedAt, &o.UpdatedAt); err != nil {
 			continue
 		}
@@ -75,10 +94,11 @@ func (h *OrderHandler) GetOrder(c *gin.Context) {
 
 	err := h.DB.QueryRow(`
 		SELECT o.id, o.user_id, u.name, u.email, o.order_number, o.status,
-		       o.total_amount, o.tax_amount, o.notes, o.estimated_ready_at, o.created_at, o.updated_at
+		       o.total_amount, o.tax_amount, o.notes, o.estimated_ready_at, o.pickup_at,
+		       o.created_at, o.updated_at
 		FROM orders o JOIN users u ON o.user_id = u.id WHERE o.id = ?`, id).
 		Scan(&o.ID, &o.UserID, &o.UserName, &o.UserEmail, &o.OrderNumber,
-			&o.Status, &o.TotalAmount, &o.TaxAmount, &o.Notes, &o.EstimatedReadyAt,
+			&o.Status, &o.TotalAmount, &o.TaxAmount, &o.Notes, &o.EstimatedReadyAt, &o.PickupAt,
 			&o.CreatedAt, &o.UpdatedAt)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "order not found"})
@@ -119,17 +139,45 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 		return
 	}
 
-	result, err := h.DB.Exec(
-		"UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-		req.Status, id)
+	// pickup_slot_counters との整合性のため tx 内で処理し、
+	// "非 cancelled → cancelled" 遷移のときのみ counter を減算する
+	tx, err := h.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var currentStatus string
+	var pickupAt sql.NullTime
+	err = tx.QueryRow("SELECT status, pickup_at FROM orders WHERE id = ? FOR UPDATE", id).Scan(&currentStatus, &pickupAt)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "order not found"})
+		return
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
-	affected, _ := result.RowsAffected()
-	if affected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "order not found"})
+	if _, err := tx.Exec(
+		"UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+		req.Status, id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	if req.Status == "cancelled" && currentStatus != "cancelled" && pickupAt.Valid {
+		if _, err := tx.Exec(
+			"UPDATE pickup_slot_counters SET reserved_count = GREATEST(reserved_count - 1, 0) WHERE store_id = 1 AND slot_at = ?",
+			pickupAt.Time); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
