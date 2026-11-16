@@ -221,7 +221,30 @@ MYSQL_USER=junc_user
 MYSQL_PASSWORD=junc_password            # 任意の強いパスワードに変更
 JWT_SECRET=your_jwt_secret_here         # ランダムな長い文字列に変更
 NODE_ENV=development
+
+# 管理画面ログイン (admin-api)
+# bcrypt ハッシュの `$` は docker-compose の変数展開を防ぐため `$$` と二重で書く
+ADMIN_EMAIL=admin@junc-hamburger.com
+ADMIN_PASSWORD_HASH=$$2a$$10$$g2cQdkbniWx.GQs0Zh1TTuyFWnVVp.URkONvgrLHzgH7LtYfRVZA.
 ```
+
+**管理画面の資格情報について**:
+
+- `admin-api` は DB ではなく env ベースの認証を採用している (`handlers/auth.go` を参照)
+- `.env.example` にはパスワード `admin1234` に対応する bcrypt ハッシュが入っている (**開発用**)
+- 本番環境では必ず別のパスワード・ハッシュに差し替えること
+- 別パスワードのハッシュを生成する:
+
+```bash
+docker exec junc_user_api node -e "console.log(require('bcryptjs').hashSync('<パスワード>', 10))"
+```
+
+管理画面ログインは `http://localhost:3002/admin/login` から。`.env.example` 初期値のまま進める場合:
+
+| 項目 | 値 |
+|---|---|
+| メール | `admin@junc-hamburger.com` |
+| パスワード | `admin1234` |
 
 ### 6-2. Docker Compose で起動
 

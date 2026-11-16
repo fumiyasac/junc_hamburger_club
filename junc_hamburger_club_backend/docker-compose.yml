@@ -63,6 +63,9 @@ services:
       DB_USER: ${MYSQL_USER:-junc_user}
       DB_PASSWORD: ${MYSQL_PASSWORD:-junc_password}
       JWT_SECRET: ${JWT_SECRET:-supersecretjwtsecret}
+      # 管理画面ログインに使う資格情報。.env に定義し、未設定だとログイン不可
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH}
       GIN_MODE: debug
     ports:
       - "8080:8080"
