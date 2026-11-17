@@ -9,6 +9,7 @@ const NAV = [
   { href: '/admin/dashboard',        label: 'ダッシュボード', icon: '📊' },
   { href: '/admin/orders',           label: '注文管理',       icon: '📋' },
   { href: '/admin/burgers',          label: 'バーガー管理',   icon: '🍔' },
+  { href: '/admin/options',          label: 'オプション管理', icon: '🧩' },
   { href: '/admin/users',            label: 'ユーザー管理',   icon: '👥' },
   { href: '/admin/pickup-settings',  label: '枠設定',         icon: '🕒' },
 ]

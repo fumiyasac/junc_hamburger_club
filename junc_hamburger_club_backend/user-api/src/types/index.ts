@@ -79,6 +79,24 @@ export interface OrderRow {
   updated_at: Date;
 }
 
+export interface OptionGroupRow {
+  id: number;
+  name: string;
+  is_required: number;
+  min_select: number;
+  max_select: number;
+  display_order: number;
+}
+
+export interface OptionRow {
+  id: number;
+  group_id: number;
+  name: string;
+  price_delta: string;
+  is_available: number;
+  display_order: number;
+}
+
 export interface PickupSettingsRow {
   id: number;
   store_id: number;

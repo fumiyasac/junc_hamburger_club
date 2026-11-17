@@ -75,6 +75,45 @@ export default async function BurgerDetailPage({ params }: { params: Promise<{ i
             </div>
           )}
 
+          {burger.optionGroups && burger.optionGroups.length > 0 && (
+            <div className="mb-6">
+              <h2 className="font-bold text-lg mb-3">カスタマイズできる項目</h2>
+              <div className="space-y-4">
+                {burger.optionGroups.map((g) => (
+                  <div key={g.id} className="border border-gray-200 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-bold">
+                        {g.name}
+                        {g.isRequired && <span className="ml-2 badge bg-primary text-white">必須</span>}
+                      </h3>
+                      <span className="text-xs text-gray-500">
+                        {g.minSelect === g.maxSelect
+                          ? `${g.minSelect} 個選択`
+                          : `${g.minSelect}〜${g.maxSelect} 個選択可`}
+                      </span>
+                    </div>
+                    <ul className="text-sm text-gray-700 space-y-1">
+                      {g.options.map((o) => (
+                        <li key={o.id} className="flex items-center justify-between">
+                          <span className={o.isAvailable ? '' : 'text-gray-400 line-through'}>
+                            {o.name}
+                            {!o.isAvailable && <span className="ml-2 text-xs">(売切)</span>}
+                          </span>
+                          <span className="text-primary-dark font-semibold">
+                            {o.priceDelta > 0 ? `+${formatPrice(o.priceDelta)}` : '±0'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                ※ 実際のご注文はモバイルアプリから。表示は参考情報です。
+              </p>
+            </div>
+          )}
+
           {burger.isAvailable ? (
             <div className="bg-primary-light rounded-xl p-4 text-center">
               <p className="text-primary font-bold mb-2">注文はモバイルアプリから</p>

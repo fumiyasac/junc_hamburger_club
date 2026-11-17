@@ -64,11 +64,11 @@ export const authApi = {
 export const cartApi = {
   get: (token: string) =>
     request<import('./types').Cart>(`${USER_API}/cart`, { headers: authHeader(token) }),
-  add: (token: string, burgerId: string, quantity = 1) =>
+  add: (token: string, burgerId: string, quantity = 1, selectedOptionIds: string[] = []) =>
     request<import('./types').CartItem>(`${USER_API}/cart`, {
       method: 'POST',
       headers: authHeader(token),
-      body: JSON.stringify({ burgerId, quantity }),
+      body: JSON.stringify({ burgerId, quantity, selectedOptionIds }),
     }),
   update: (token: string, itemId: string, quantity: number) =>
     request<unknown>(`${USER_API}/cart/${itemId}`, {
@@ -187,6 +187,66 @@ export const adminUserApi = {
 export const adminDashboardApi = {
   stats: (token: string) =>
     request<import('./types').DashboardStats>(`${ADMIN_API}/dashboard`, { headers: authHeader(token) }),
+}
+
+export const adminOptionsApi = {
+  listGroups: (token: string) =>
+    request<import('./types').OptionGroup[]>(`${ADMIN_API}/option-groups`, {
+      headers: authHeader(token),
+    }),
+  createGroup: (
+    token: string,
+    data: { name: string; isRequired: boolean; minSelect: number; maxSelect: number; displayOrder: number },
+  ) =>
+    request<{ id: number }>(`${ADMIN_API}/option-groups`, {
+      method: 'POST',
+      headers: authHeader(token),
+      body: JSON.stringify(data),
+    }),
+  updateGroup: (
+    token: string,
+    id: string,
+    data: { name: string; isRequired: boolean; minSelect: number; maxSelect: number; displayOrder: number },
+  ) =>
+    request<unknown>(`${ADMIN_API}/option-groups/${id}`, {
+      method: 'PUT',
+      headers: authHeader(token),
+      body: JSON.stringify(data),
+    }),
+  createOption: (
+    token: string,
+    data: { groupId: string; name: string; priceDelta: number; isAvailable: boolean; displayOrder: number },
+  ) =>
+    request<{ id: number }>(`${ADMIN_API}/options`, {
+      method: 'POST',
+      headers: authHeader(token),
+      body: JSON.stringify(data),
+    }),
+  updateOption: (
+    token: string,
+    id: string,
+    data: { groupId: string; name: string; priceDelta: number; isAvailable: boolean; displayOrder: number },
+  ) =>
+    request<unknown>(`${ADMIN_API}/options/${id}`, {
+      method: 'PUT',
+      headers: authHeader(token),
+      body: JSON.stringify(data),
+    }),
+  toggleAvailability: (token: string, id: string) =>
+    request<unknown>(`${ADMIN_API}/options/${id}/availability`, {
+      method: 'PUT',
+      headers: authHeader(token),
+    }),
+  listBurgerGroups: (token: string, burgerId: string) =>
+    request<{ groupIds: string[] }>(`${ADMIN_API}/burgers/${burgerId}/option-groups`, {
+      headers: authHeader(token),
+    }),
+  setBurgerGroups: (token: string, burgerId: string, groupIds: string[]) =>
+    request<unknown>(`${ADMIN_API}/burgers/${burgerId}/option-groups`, {
+      method: 'PUT',
+      headers: authHeader(token),
+      body: JSON.stringify({ groupIds }),
+    }),
 }
 
 export const adminPickupApi = {

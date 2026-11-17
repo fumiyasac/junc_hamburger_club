@@ -89,20 +89,77 @@ CREATE TABLE IF NOT EXISTS burger_tags (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ────────────────────────────────────────
+-- Option Groups / Options (トッピング・オプション、詳細は docs/options_rules.md)
+-- ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS option_groups (
+  id            INT          NOT NULL AUTO_INCREMENT,
+  name          VARCHAR(100) NOT NULL,
+  is_required   BOOLEAN      NOT NULL DEFAULT FALSE,
+  min_select    INT          NOT NULL DEFAULT 0,
+  max_select    INT          NOT NULL DEFAULT 1,
+  display_order INT          NOT NULL DEFAULT 0,
+  created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT chk_option_group_min_max CHECK (min_select >= 0 AND max_select >= 0 AND min_select <= max_select)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS options (
+  id            INT           NOT NULL AUTO_INCREMENT,
+  group_id      INT           NOT NULL,
+  name          VARCHAR(100)  NOT NULL,
+  price_delta   DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  is_available  BOOLEAN       NOT NULL DEFAULT TRUE,
+  display_order INT           NOT NULL DEFAULT 0,
+  created_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_options_group (group_id),
+  CONSTRAINT fk_options_group FOREIGN KEY (group_id) REFERENCES option_groups (id) ON DELETE CASCADE,
+  CONSTRAINT chk_options_price_nonneg CHECK (price_delta >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- どのバーガーにどのオプショングループを適用するかの M:N
+CREATE TABLE IF NOT EXISTS burger_option_groups (
+  burger_id     INT NOT NULL,
+  group_id      INT NOT NULL,
+  display_order INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (burger_id, group_id),
+  KEY idx_bog_group (group_id),
+  CONSTRAINT fk_bog_burger FOREIGN KEY (burger_id) REFERENCES burgers (id) ON DELETE CASCADE,
+  CONSTRAINT fk_bog_group  FOREIGN KEY (group_id)  REFERENCES option_groups (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ────────────────────────────────────────
 -- Cart Items
+-- option_hash: 選択オプションの決定論的ハッシュ (SHA-256 of sorted option_id CSV)。
+-- 同一 (user, burger, option_hash) を UNIQUE に。オプションなしは空文字。
 -- ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS cart_items (
-  id         INT       NOT NULL AUTO_INCREMENT,
-  user_id    INT       NOT NULL,
-  burger_id  INT       NOT NULL,
-  quantity   INT       NOT NULL DEFAULT 1,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  id          INT         NOT NULL AUTO_INCREMENT,
+  user_id     INT         NOT NULL,
+  burger_id   INT         NOT NULL,
+  option_hash VARCHAR(64) NOT NULL DEFAULT '',
+  quantity    INT         NOT NULL DEFAULT 1,
+  created_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_cart_user_burger (user_id, burger_id),
+  UNIQUE KEY uq_cart_user_burger_opts (user_id, burger_id, option_hash),
   KEY idx_cart_user (user_id),
   CONSTRAINT fk_cart_user   FOREIGN KEY (user_id)   REFERENCES users (id)   ON DELETE CASCADE,
   CONSTRAINT fk_cart_burger FOREIGN KEY (burger_id) REFERENCES burgers (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- カート行ごとの選択オプション (表示・クエリ用)
+CREATE TABLE IF NOT EXISTS cart_item_options (
+  id            INT NOT NULL AUTO_INCREMENT,
+  cart_item_id  INT NOT NULL,
+  option_id     INT NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_cio (cart_item_id, option_id),
+  KEY idx_cio_option (option_id),
+  CONSTRAINT fk_cio_cart   FOREIGN KEY (cart_item_id) REFERENCES cart_items (id) ON DELETE CASCADE,
+  CONSTRAINT fk_cio_option FOREIGN KEY (option_id)    REFERENCES options (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ────────────────────────────────────────
@@ -144,6 +201,21 @@ CREATE TABLE IF NOT EXISTS order_items (
   KEY idx_order_items_burger (burger_id),
   CONSTRAINT fk_order_items_order  FOREIGN KEY (order_id)  REFERENCES orders  (id) ON DELETE CASCADE,
   CONSTRAINT fk_order_items_burger FOREIGN KEY (burger_id) REFERENCES burgers (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 注文明細ごとの選択オプション (name / price は注文時点のスナップショット)。
+-- option_id は NULL 許容: 元 option が削除されても過去注文の表示を維持するため。
+CREATE TABLE IF NOT EXISTS order_item_options (
+  id            INT           NOT NULL AUTO_INCREMENT,
+  order_item_id INT           NOT NULL,
+  option_id     INT           NULL,
+  group_name    VARCHAR(100)  NOT NULL,
+  option_name   VARCHAR(100)  NOT NULL,
+  price_delta   DECIMAL(10,2) NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_oio_item (order_item_id),
+  CONSTRAINT fk_oio_item   FOREIGN KEY (order_item_id) REFERENCES order_items (id) ON DELETE CASCADE,
+  CONSTRAINT fk_oio_option FOREIGN KEY (option_id)    REFERENCES options (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ────────────────────────────────────────

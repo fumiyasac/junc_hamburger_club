@@ -153,9 +153,21 @@ export default function AdminOrdersPage() {
                     </div>
                   </div>
 
-                  <div className="mt-3 text-sm text-gray-600">
+                  <div className="mt-3 text-sm text-gray-600 space-y-1">
                     {(order.items ?? []).map((item) => (
-                      <span key={item.id} className="mr-3">{item.burgerName} ×{item.quantity}</span>
+                      <div key={item.id}>
+                        <span className="font-semibold">{item.burgerName} ×{item.quantity}</span>
+                        {item.options && item.options.length > 0 && (
+                          <ul className="ml-4 text-xs text-gray-500">
+                            {item.options.map((o) => (
+                              <li key={o.id}>
+                                └ {o.groupName}: {o.optionName}
+                                {o.priceDelta > 0 && ` (+${Math.round(o.priceDelta)}円)`}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                     ))}
                   </div>
 

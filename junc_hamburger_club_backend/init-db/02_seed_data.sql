@@ -170,3 +170,45 @@ INSERT INTO news (id, title, category, body, published_at) VALUES
 'モバイルアプリ v1.2 をリリースしました。\n\n主な改善点:\n- カート画面の数量変更ボタンを大きくし、片手での操作性を向上\n- 注文ステータスのリアルタイム更新間隔を調整し、バッテリー消費を軽減\n- オンボーディング画面のアニメーションを刷新\n\nアプリストアから最新版へのアップデートをお願いいたします。', '2026-09-28 15:00:00'),
 (8, '【予約公開】定期メンテナンス実施のお知らせ', 'app',
 'サービス品質向上のため、下記のとおりアプリの定期メンテナンスを実施いたします。\n\n実施日時: 2026年12月15日 (火) 02:00 - 04:00\n影響範囲: アプリからの注文・会員機能の全停止\n\nメンテナンス時間中はご不便をおかけしますが、何卒ご理解のほどよろしくお願いいたします。', '2026-12-15 02:00:00');
+
+-- ────────────────────────────────────────
+-- Option Groups / Options / Burger assignments
+-- ────────────────────────────────────────
+INSERT INTO option_groups (id, name, is_required, min_select, max_select, display_order) VALUES
+  (1, 'パティ',         TRUE,  1, 1, 10),
+  (2, '追加トッピング', FALSE, 0, 3, 20),
+  (3, '抜き',           FALSE, 0, 10, 30),
+  (4, 'バンズ変更',     FALSE, 0, 1, 40);
+
+INSERT INTO options (id, group_id, name, price_delta, is_available, display_order) VALUES
+  -- パティ
+  (1, 1, 'シングル',    0.00,  TRUE, 10),
+  (2, 1, 'ダブル',      600.00, TRUE, 20),
+  -- 追加トッピング
+  (3, 2, 'チェダーチーズ', 150.00, TRUE,  10),
+  (4, 2, 'ベーコン',       200.00, TRUE,  20),
+  (5, 2, 'アボカド',       250.00, FALSE, 30),  -- 動作確認用に売り切れ
+  (6, 2, '目玉焼き',       150.00, TRUE,  40),
+  (7, 2, 'ハラペーニョ',   100.00, TRUE,  50),
+  -- 抜き
+  (8,  3, 'オニオン抜き',    0.00, TRUE, 10),
+  (9,  3, 'ピクルス抜き',    0.00, TRUE, 20),
+  (10, 3, 'トマト抜き',      0.00, TRUE, 30),
+  (11, 3, 'ソース少なめ',    0.00, TRUE, 40),
+  -- バンズ変更
+  (12, 4, 'ブリオッシュ',    0.00,   TRUE, 10),
+  (13, 4, '全粒粉',         100.00, TRUE, 20);
+
+-- ビーフ系 13 件にパティグループ (1) を紐付け
+-- 1-6 (classic+spicy except chicken), 8-10 (spicy pepper+cheese except salmon), 12 (cheese onion), 17/19/20 (premium except foie gras)
+INSERT INTO burger_option_groups (burger_id, group_id, display_order) VALUES
+  (1, 1, 10), (2, 1, 10), (3, 1, 10), (4, 1, 10), (5, 1, 10), (6, 1, 10),
+  (8, 1, 10), (9, 1, 10), (10, 1, 10), (12, 1, 10),
+  (17, 1, 10), (19, 1, 10), (20, 1, 10);
+
+-- 全 20 件に トッピング(2) / 抜き(3) / バンズ変更(4) を紐付け
+INSERT INTO burger_option_groups (burger_id, group_id, display_order)
+SELECT b.id, g.id, g.display_order
+FROM burgers b
+CROSS JOIN option_groups g
+WHERE g.id IN (2, 3, 4);

@@ -42,7 +42,8 @@ Flutter モバイルアプリ・TypeScript/Go バックエンド・Next.js Web �
 - カート管理（数量変更・削除）
 - 注文作成・注文完了画面
 - 注文ステータス リアルタイム追跡 (5 秒ポーリング)
-- 管理画面 (ダッシュボード・注文管理・バーガー管理・ユーザー管理)
+- 管理画面 (ダッシュボード・注文管理・バーガー管理・ユーザー管理・オプション管理)
+- トッピング・オプション選択（商品カスタマイズ / サーバー側価格計算 / 注文スナップショット）
 
 ---
 
@@ -322,6 +323,16 @@ docker compose up -d --build
 docker exec -i junc_mysql mysql -u root -prootpassword junc_hamburger \
   < junc_hamburger_club_backend/init-db/03_news_migration.sql
 ```
+
+**トッピング・オプション機能 (`05_options_migration.sql`)** の追加投入:
+
+```bash
+cd junc_hamburger_club_backend
+docker compose exec -T mysql sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' \
+  < init-db/05_options_migration.sql
+```
+
+`option_groups` / `options` / `burger_option_groups` / `cart_item_options` / `order_item_options` の作成と、`cart_items.option_hash` の追加 + UNIQUE 制約差し替え、シード投入までを 1 スクリプトで冪等に実行する。詳細な仕様は [`docs/options_rules.md`](docs/options_rules.md) を参照。
 
 ### 6-5. サービスの停止・再起動
 

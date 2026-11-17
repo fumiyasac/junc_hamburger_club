@@ -234,6 +234,71 @@ components:
                 type: number
               subtotal:
                 type: number
+              options:
+                type: array
+                description: 注文時点のオプションスナップショット (order_item_options)
+                items:
+                  $ref: '#/components/schemas/OrderItemOptionSnapshot'
+
+    OptionGroup:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        name:
+          type: string
+        isRequired:
+          type: boolean
+        minSelect:
+          type: integer
+        maxSelect:
+          type: integer
+        displayOrder:
+          type: integer
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/Option'
+
+    Option:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        groupId:
+          type: string
+          example: "1"
+        name:
+          type: string
+        priceDelta:
+          type: number
+          minimum: 0
+        isAvailable:
+          type: boolean
+        displayOrder:
+          type: integer
+
+    OrderItemOptionSnapshot:
+      type: object
+      description: 注文確定時のオプション凍結データ。削除されたオプションは optionId が null になる
+      properties:
+        id:
+          type: string
+          example: "1"
+        optionId:
+          type: string
+          nullable: true
+          example: "3"
+        groupName:
+          type: string
+          example: "パティ"
+        optionName:
+          type: string
+          example: "ダブル"
+        priceDelta:
+          type: number
 
     User:
       type: object
@@ -780,3 +845,211 @@ paths:
                               type: integer
                             capacity:
                               type: integer
+
+  /option-groups:
+    get:
+      tags: [Options]
+      summary: オプショングループ一覧取得 (配下オプション含む)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OptionGroup'
+    post:
+      tags: [Options]
+      summary: オプショングループ作成
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                isRequired:
+                  type: boolean
+                minSelect:
+                  type: integer
+                  minimum: 0
+                maxSelect:
+                  type: integer
+                  minimum: 0
+                displayOrder:
+                  type: integer
+      responses:
+        '201':
+          description: Created
+
+  /option-groups/{id}:
+    put:
+      tags: [Options]
+      summary: オプショングループ更新
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                isRequired:
+                  type: boolean
+                minSelect:
+                  type: integer
+                maxSelect:
+                  type: integer
+                displayOrder:
+                  type: integer
+      responses:
+        '200':
+          description: OK
+
+  /options:
+    post:
+      tags: [Options]
+      summary: オプション作成
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [groupId, name]
+              properties:
+                groupId:
+                  type: string
+                name:
+                  type: string
+                priceDelta:
+                  type: number
+                  minimum: 0
+                isAvailable:
+                  type: boolean
+                displayOrder:
+                  type: integer
+      responses:
+        '201':
+          description: Created
+
+  /options/{id}:
+    put:
+      tags: [Options]
+      summary: オプション更新
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                groupId:
+                  type: string
+                name:
+                  type: string
+                priceDelta:
+                  type: number
+                isAvailable:
+                  type: boolean
+                displayOrder:
+                  type: integer
+      responses:
+        '200':
+          description: OK
+
+  /options/{id}/availability:
+    put:
+      tags: [Options]
+      summary: オプションの売り切れトグル (is_available 反転)
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+
+  /burgers/{id}/option-groups:
+    get:
+      tags: [Options]
+      summary: バーガーに紐付くオプショングループ ID 一覧
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      groupIds:
+                        type: array
+                        items: { type: string }
+    put:
+      tags: [Options]
+      summary: バーガーとオプショングループの紐付けをまるごと差し替え
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                groupIds:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200':
+          description: OK

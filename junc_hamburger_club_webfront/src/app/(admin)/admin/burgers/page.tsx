@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useAdminAuth } from '@/hooks/useAdminAuth'
 import { adminBurgerApi } from '@/lib/api'
 import { Burger } from '@/lib/types'
@@ -117,6 +118,12 @@ export default function AdminBurgersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
+                        <Link
+                          href={`/admin/burgers/${burger.id}/options`}
+                          className="px-2 py-1 text-xs rounded-lg bg-primary-light text-primary-dark hover:bg-primary hover:text-white font-medium"
+                        >
+                          オプション
+                        </Link>
                         <button
                           onClick={() => toggleAvailability(burger.id)}
                           className="px-2 py-1 text-xs rounded-lg bg-gray-100 hover:bg-gray-200 font-medium"

@@ -12,7 +12,19 @@ function generateOrderNumber(): string {
   return `JUNC-${ymd}-${rand}`;
 }
 
-function formatOrder(order: OrderRow, items: OrderItemRow[]) {
+interface ItemOptionSnapshot {
+  id: string;
+  optionId: string | null;
+  groupName: string;
+  optionName: string;
+  priceDelta: number;
+}
+
+function formatOrder(
+  order: OrderRow,
+  items: OrderItemRow[],
+  optionsByItemId: Map<number, ItemOptionSnapshot[]>,
+) {
   return {
     id: String(order.id),
     orderNumber: order.order_number,
@@ -32,8 +44,34 @@ function formatOrder(order: OrderRow, items: OrderItemRow[]) {
       quantity: i.quantity,
       unitPrice: parseFloat(i.unit_price),
       subtotal: parseFloat(i.subtotal),
+      options: optionsByItemId.get(i.id) ?? [],
     })),
   };
+}
+
+async function loadOrderItemOptions(orderIds: number[]): Promise<Map<number, ItemOptionSnapshot[]>> {
+  const map = new Map<number, ItemOptionSnapshot[]>();
+  if (orderIds.length === 0) return map;
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT oio.id, oio.order_item_id, oio.option_id, oio.group_name, oio.option_name, oio.price_delta
+     FROM order_item_options oio
+     JOIN order_items oi ON oi.id = oio.order_item_id
+     WHERE oi.order_id IN (?)
+     ORDER BY oio.id`,
+    [orderIds],
+  );
+  for (const r of rows as RowDataPacket[]) {
+    const itemId = r['order_item_id'] as number;
+    if (!map.has(itemId)) map.set(itemId, []);
+    map.get(itemId)!.push({
+      id: String(r['id']),
+      optionId: r['option_id'] === null ? null : String(r['option_id']),
+      groupName: r['group_name'] as string,
+      optionName: r['option_name'] as string,
+      priceDelta: parseFloat(r['price_delta'] as string),
+    });
+  }
+  return map;
 }
 
 export async function createOrder(req: AuthRequest, res: Response): Promise<void> {
@@ -96,9 +134,10 @@ export async function createOrder(req: AuthRequest, res: Response): Promise<void
       );
     }
 
-    // Get cart items
+    // Get cart items (incl. options via LEFT JOIN of cart_item_options)
     const [cartRows] = await conn.query<RowDataPacket[]>(
-      `SELECT ci.*, b.price AS burger_price, b.name AS burger_name
+      `SELECT ci.id, ci.burger_id, ci.quantity,
+              b.price AS burger_price, b.name AS burger_name
        FROM cart_items ci
        JOIN burgers b ON ci.burger_id = b.id
        WHERE ci.user_id = ? AND b.is_available = 1`,
@@ -111,11 +150,70 @@ export async function createOrder(req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    const subtotal = cartRows.reduce((s, r) => s + parseFloat(r['burger_price']) * r['quantity'], 0);
+    const cartIds = cartRows.map((r) => r['id'] as number);
+    const [optRows] = await conn.query<RowDataPacket[]>(
+      `SELECT cio.cart_item_id, o.id, o.name, o.price_delta, o.is_available, og.name AS group_name
+       FROM cart_item_options cio
+       JOIN options o ON o.id = cio.option_id
+       JOIN option_groups og ON og.id = o.group_id
+       WHERE cio.cart_item_id IN (?)
+       FOR SHARE`,
+      [cartIds],
+    );
+
+    // cart_item_id -> options
+    interface CartOption {
+      id: number;
+      name: string;
+      priceDelta: number;
+      isAvailable: boolean;
+      groupName: string;
+    }
+    const optsByCart = new Map<number, CartOption[]>();
+    for (const r of optRows as RowDataPacket[]) {
+      const cid = r['cart_item_id'] as number;
+      if (!optsByCart.has(cid)) optsByCart.set(cid, []);
+      optsByCart.get(cid)!.push({
+        id: r['id'] as number,
+        name: r['name'] as string,
+        priceDelta: parseFloat(r['price_delta'] as string),
+        isAvailable: Boolean(r['is_available']),
+        groupName: r['group_name'] as string,
+      });
+    }
+
+    // 売り切れ再検証
+    for (const item of cartRows) {
+      const opts = optsByCart.get(item['id'] as number) ?? [];
+      const sold = opts.find((o) => !o.isAvailable);
+      if (sold) {
+        await conn.rollback();
+        res.status(400).json({
+          success: false,
+          error: 'Some options in the cart are no longer available',
+          code: 'option_out_of_stock_at_order',
+          itemId: String(item['id']),
+          optionId: String(sold.id),
+          optionName: sold.name,
+        });
+        return;
+      }
+    }
+
+    // 価格計算 (unit_price はオプション差分込み)
+    const itemCalc = cartRows.map((item) => {
+      const opts = optsByCart.get(item['id'] as number) ?? [];
+      const base = parseFloat(item['burger_price'] as string);
+      const delta = opts.reduce((s, o) => s + o.priceDelta, 0);
+      const unitPrice = base + delta;
+      return { item, opts, unitPrice, subtotal: unitPrice * (item['quantity'] as number) };
+    });
+
+    const subtotal = itemCalc.reduce((s, c) => s + c.subtotal, 0);
     const taxAmount = subtotal * 0.1;
     const totalAmount = subtotal + taxAmount;
     const orderNumber = generateOrderNumber();
-    const estimatedReadyAt = new Date(Date.now() + 20 * 60 * 1000); // 20 min
+    const estimatedReadyAt = new Date(Date.now() + 20 * 60 * 1000);
 
     const [orderResult] = await conn.query(
       `INSERT INTO orders (user_id, order_number, status, total_amount, tax_amount, notes, estimated_ready_at, pickup_at)
@@ -124,12 +222,21 @@ export async function createOrder(req: AuthRequest, res: Response): Promise<void
     );
     const orderId = (orderResult as { insertId: number }).insertId;
 
-    for (const item of cartRows) {
-      const unitPrice = parseFloat(item['burger_price']);
-      await conn.query(
+    for (const c of itemCalc) {
+      const [oiResult] = await conn.query(
         'INSERT INTO order_items (order_id, burger_id, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)',
-        [orderId, item['burger_id'], item['quantity'], unitPrice.toFixed(2), (unitPrice * item['quantity']).toFixed(2)]
+        [orderId, c.item['burger_id'], c.item['quantity'], c.unitPrice.toFixed(2), c.subtotal.toFixed(2)]
       );
+      const orderItemId = (oiResult as { insertId: number }).insertId;
+
+      // snapshot
+      for (const o of c.opts) {
+        await conn.query(
+          `INSERT INTO order_item_options (order_item_id, option_id, group_name, option_name, price_delta)
+           VALUES (?, ?, ?, ?, ?)`,
+          [orderItemId, o.id, o.groupName, o.name, o.priceDelta.toFixed(2)],
+        );
+      }
     }
 
     await conn.query('DELETE FROM cart_items WHERE user_id = ?', [userId]);
@@ -144,10 +251,11 @@ export async function createOrder(req: AuthRequest, res: Response): Promise<void
        FROM order_items oi JOIN burgers b ON oi.burger_id = b.id WHERE oi.order_id = ?`,
       [orderId]
     );
+    const optionsByItemId = await loadOrderItemOptions([orderId]);
 
     res.status(201).json({
       success: true,
-      data: formatOrder(orderRows[0] as OrderRow, itemRows as OrderItemRow[]),
+      data: formatOrder(orderRows[0] as OrderRow, itemRows as OrderItemRow[], optionsByItemId),
     });
   } catch (err) {
     await conn.rollback();
@@ -163,6 +271,8 @@ export async function getOrders(req: AuthRequest, res: Response): Promise<void> 
     'SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 20',
     [userId]
   );
+  const orderIds = (orderRows as OrderRow[]).map((o) => o.id);
+  const optionsByItemId = await loadOrderItemOptions(orderIds);
 
   const orders = await Promise.all(
     (orderRows as OrderRow[]).map(async (order) => {
@@ -171,7 +281,7 @@ export async function getOrders(req: AuthRequest, res: Response): Promise<void> 
          FROM order_items oi JOIN burgers b ON oi.burger_id = b.id WHERE oi.order_id = ?`,
         [order.id]
       );
-      return formatOrder(order, itemRows as OrderItemRow[]);
+      return formatOrder(order, itemRows as OrderItemRow[], optionsByItemId);
     })
   );
 
@@ -197,8 +307,9 @@ export async function getOrderById(req: AuthRequest, res: Response): Promise<voi
      FROM order_items oi JOIN burgers b ON oi.burger_id = b.id WHERE oi.order_id = ?`,
     [orderId]
   );
+  const optionsByItemId = await loadOrderItemOptions([Number(orderId)]);
 
-  res.json({ success: true, data: formatOrder(orderRows[0] as OrderRow, itemRows as OrderItemRow[]) });
+  res.json({ success: true, data: formatOrder(orderRows[0] as OrderRow, itemRows as OrderItemRow[], optionsByItemId) });
 }
 
 export async function cancelOrder(req: AuthRequest, res: Response): Promise<void> {

@@ -145,6 +145,10 @@ components:
           items:
             type: string
           example: ["定番", "人気"]
+        optionGroups:
+          type: array
+          description: バーガー詳細 (GET /burgers/:id) のみに含まれる。一覧には含まれない。
+          items: { $ref: '#/components/schemas/OptionGroup' }
 
     CartItem:
       type: object
@@ -157,13 +161,21 @@ components:
           type: string
         burgerPrice:
           type: number
+          description: バーガー単体の基本価格 (option delta を含まない)
         burgerImageUrl:
           type: string
           nullable: true
         quantity:
           type: integer
+        options:
+          type: array
+          items: { $ref: '#/components/schemas/CartItemOption' }
+        unitPrice:
+          type: number
+          description: burgerPrice + SUM(options.priceDelta)
         subtotal:
           type: number
+          description: unitPrice * quantity
 
     Cart:
       type: object
@@ -198,8 +210,12 @@ components:
           type: integer
         unitPrice:
           type: number
+          description: オプション差分込みの単価
         subtotal:
           type: number
+        options:
+          type: array
+          items: { $ref: '#/components/schemas/OrderItemOption' }
 
     Order:
       type: object
@@ -241,6 +257,50 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/OrderItem'
+
+    Option:
+      type: object
+      required: [id, name, priceDelta, isAvailable, displayOrder]
+      properties:
+        id:          { type: string, example: "3" }
+        name:        { type: string, example: "チェダーチーズ" }
+        priceDelta:  { type: number, description: "基本価格からの差分 (>= 0)", example: 150 }
+        isAvailable: { type: boolean }
+        displayOrder:{ type: integer }
+
+    OptionGroup:
+      type: object
+      required: [id, name, isRequired, minSelect, maxSelect, displayOrder, options]
+      properties:
+        id:           { type: string, example: "1" }
+        name:         { type: string, example: "パティ" }
+        isRequired:   { type: boolean }
+        minSelect:    { type: integer }
+        maxSelect:    { type: integer }
+        displayOrder: { type: integer }
+        options:
+          type: array
+          items: { $ref: '#/components/schemas/Option' }
+
+    CartItemOption:
+      type: object
+      required: [id, groupName, name, priceDelta]
+      properties:
+        id:         { type: string, description: "option_id" }
+        groupName:  { type: string }
+        name:       { type: string }
+        priceDelta: { type: number }
+
+    OrderItemOption:
+      type: object
+      required: [id, groupName, optionName, priceDelta]
+      description: 注文時点のスナップショット。option が後で削除されても表示維持する。
+      properties:
+        id:         { type: string, description: "order_item_options.id" }
+        optionId:   { type: string, nullable: true, description: "元 option の id (削除されると null)" }
+        groupName:  { type: string }
+        optionName: { type: string }
+        priceDelta: { type: number }
 
     PickupSlot:
       type: object
@@ -603,6 +663,13 @@ paths:
                   type: integer
                   default: 1
                   minimum: 1
+                selectedOptionIds:
+                  type: array
+                  items: { type: string }
+                  description: |
+                    選択オプションの id 配列。重複は内部で一意化される。
+                    同一 (burger, 選択組み合わせ) が既存なら quantity を加算、違う組み合わせは別行。
+                  example: ["2", "3"]
       responses:
         '201':
           description: 追加成功
@@ -615,6 +682,30 @@ paths:
                     type: boolean
                   data:
                     $ref: '#/components/schemas/CartItem'
+        '400':
+          description: |
+            オプションの検証エラー。`code` で原因判別:
+              - option_not_found: 存在しない option id
+              - option_invalid_burger: このバーガーに適用されないグループのオプション
+              - option_group_required: 必須グループ未選択
+              - option_group_min_violation: 最小選択数未満
+              - option_group_max_violation: 最大選択数超過
+              - option_out_of_stock: 売り切れオプション
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error:   { type: string }
+                  code:    { type: string }
+                  details:
+                    type: object
+                    properties:
+                      groupId:    { type: string }
+                      groupName:  { type: string }
+                      optionId:   { type: string }
+                      optionName: { type: string }
     delete:
       tags: [Cart]
       summary: カート全削除
@@ -724,7 +815,19 @@ paths:
                     type: string
                   code:
                     type: string
-                    description: pickup_invalid_format / pickup_boundary / pickup_closed_day / pickup_past_lookahead / pickup_out_of_hours / pickup_lead_time のいずれか (pickupAt 検証失敗時)
+                    description: |
+                      pickupAt 検証失敗時: pickup_invalid_format / pickup_boundary /
+                      pickup_closed_day / pickup_past_lookahead / pickup_out_of_hours / pickup_lead_time。
+                      オプション売り切れ: option_out_of_stock_at_order (itemId / optionId / optionName も返す)
+                  itemId:
+                    type: string
+                    description: option_out_of_stock_at_order 時のみ。該当 cart_item_id
+                  optionId:
+                    type: string
+                    description: option_out_of_stock_at_order 時のみ
+                  optionName:
+                    type: string
+                    description: option_out_of_stock_at_order 時のみ
         '409':
           description: 指定した受け取り枠が満杯 (code=pickup_slot_full)
           content:
