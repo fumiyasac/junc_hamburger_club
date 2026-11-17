@@ -252,8 +252,10 @@ components:
           type: boolean
         minSelect:
           type: integer
+          minimum: 0
         maxSelect:
           type: integer
+          minimum: 1
         displayOrder:
           type: integer
         options:
@@ -888,12 +890,28 @@ paths:
                   minimum: 0
                 maxSelect:
                   type: integer
-                  minimum: 0
+                  minimum: 1
                 displayOrder:
                   type: integer
       responses:
         '201':
           description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string, example: "5" }
+        '400':
+          description: バリデーションエラー (min > max / maxSelect < 1 / isRequired=true && minSelect < 1)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /option-groups/{id}:
     put:
@@ -926,6 +944,18 @@ paths:
       responses:
         '200':
           description: OK
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: グループが存在しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /options:
     post:
@@ -955,6 +985,22 @@ paths:
       responses:
         '201':
           description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string, example: "14" }
+        '400':
+          description: バリデーションエラー (priceDelta < 0 など)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /options/{id}:
     put:
@@ -987,6 +1033,18 @@ paths:
       responses:
         '200':
           description: OK
+        '400':
+          description: バリデーションエラー (priceDelta < 0 など)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: オプションが存在しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /options/{id}/availability:
     put:
@@ -1002,6 +1060,12 @@ paths:
       responses:
         '200':
           description: OK
+        '404':
+          description: オプションが存在しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /burgers/{id}/option-groups:
     get:
@@ -1053,3 +1117,15 @@ paths:
       responses:
         '200':
           description: OK
+        '400':
+          description: 非数値または存在しない groupId が含まれる
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: バーガーが存在しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
