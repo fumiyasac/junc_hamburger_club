@@ -878,3 +878,111 @@ flutter install -d booted
 - [README.md](README.md) — プロジェクト概要・セットアップ
 - [architecture_guideline.md](architecture_guideline.md) — アーキテクチャガイド
 - [procedure_manual.md](procedure_manual.md) — 環境動作手順
+
+---
+
+## 8. トッピング・オプション選択機能の検証
+
+> 共通ルールは [`docs/options_rules.md`](docs/options_rules.md) を参照。本節は API / 管理画面を使って、オプション付き注文フローが期待通りに動くかを確認する手順。
+
+### 8-1. 既存環境へのマイグレーション
+
+初回セットアップで volume が空なら `init-db/01_schema.sql` + `02_seed_data.sql` が再適用されるので不要。既存 DB にオプション機能を追加する場合:
+
+```bash
+cd junc_hamburger_club_backend
+docker compose exec -T mysql sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' \
+  < init-db/05_options_migration.sql
+```
+
+以下を確認:
+
+```bash
+docker compose exec -T mysql mysql -ujunc_user -pjunc_password junc_hamburger -e \
+  "SELECT COUNT(*) FROM option_groups; SELECT COUNT(*) FROM options;
+   SHOW COLUMNS FROM cart_items LIKE 'option_hash';"
+```
+
+- `option_groups` が 4 件 (パティ / 追加トッピング / 抜き / バンズ変更)
+- `options` が 13 件
+- `cart_items.option_hash` カラムが存在する
+
+### 8-2. user-api: カート追加の正常系と境界値
+
+ログイン済み token を取得してから:
+
+```bash
+# 詳細取得: optionGroups が含まれる
+curl -s http://localhost:3100/api/v1/burgers/1 | jq '.data.optionGroups'
+
+# 必須グループ未選択 → option_group_required
+curl -s -X POST http://localhost:3100/api/v1/cart \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"burgerId":"1","quantity":1,"selectedOptionIds":[]}' | jq '{code}'
+
+# 最大超過 (トッピング 4 件, max=3) → option_group_max_violation
+curl -s -X POST http://localhost:3100/api/v1/cart \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"burgerId":"1","quantity":1,"selectedOptionIds":["1","3","4","6","7"]}' | jq '{code}'
+
+# 売り切れ (id=5 アボカド) → option_out_of_stock
+curl -s -X POST http://localhost:3100/api/v1/cart \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"burgerId":"1","quantity":1,"selectedOptionIds":["1","5"]}' | jq '{code}'
+
+# 正常: パティ=ダブル + ベーコン
+curl -s -X POST http://localhost:3100/api/v1/cart \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"burgerId":"1","quantity":1,"selectedOptionIds":["2","4"]}' | jq '.data'
+
+# 同じ組み合わせを再度 → quantity が加算される (別行にならない)
+curl -s -X POST http://localhost:3100/api/v1/cart \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"burgerId":"1","quantity":2,"selectedOptionIds":["2","4"]}' | jq '{quantity: .data.quantity}'
+
+# 違う組み合わせ (同じバーガー) → 別行として追加される
+curl -s -X POST http://localhost:3100/api/v1/cart \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"burgerId":"1","quantity":1,"selectedOptionIds":["1","3"]}' | jq
+```
+
+### 8-3. 注文確定とスナップショット
+
+```bash
+# スロット取得 → 注文確定
+SLOT=$(curl -s "http://localhost:3100/api/v1/pickup-slots?date=$(date +%Y-%m-%d)" \
+  -H "Authorization: Bearer $TOKEN" | jq -r '.data.slots[] | select(.available==true) | .startAt' | head -1)
+curl -s -X POST http://localhost:3100/api/v1/orders \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "{\"pickupAt\":\"$SLOT\"}" | \
+  jq '.data.items[] | {name: .burgerName, options: [.options[] | {g: .groupName, o: .optionName, d: .priceDelta}]}'
+```
+
+- 各 `items[].options[]` に `groupName` / `optionName` / `priceDelta` のスナップショットが残る
+- 以降、options マスタを変更しても注文詳細の表示は変わらない (凍結済み)
+
+### 8-4. admin-api / 管理画面
+
+```bash
+# オプショングループ一覧
+curl -s http://localhost:8081/api/v1/admin/option-groups \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq
+
+# バーガー ↔ グループ紐付け取得
+curl -s http://localhost:8081/api/v1/admin/burgers/1/option-groups \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq
+
+# 売り切れトグル
+curl -s -X PUT http://localhost:8081/api/v1/admin/options/5/availability \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq
+
+# 注文一覧に options スナップショットが含まれる
+curl -s "http://localhost:8081/api/v1/admin/orders?page=1" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.data.orders[0].items[].options'
+```
+
+Web 管理画面 (http://localhost:3002/admin):
+
+- `/admin/options` でグループ/オプションの作成・編集・売切トグル
+- `/admin/burgers` → 「オプション」ボタン → `/admin/burgers/:id/options` で紐付け
+- `/admin/orders` の各注文項目下にオプション内訳が表示される

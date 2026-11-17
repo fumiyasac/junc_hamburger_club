@@ -77,13 +77,41 @@ type AdminPickupSlotSummary struct {
 }
 
 type OrderItem struct {
-	ID             int     `json:"id,string"`
-	BurgerID       int     `json:"burgerId,string"`
-	BurgerName     string  `json:"burgerName"`
-	BurgerImageURL *string `json:"burgerImageUrl"`
-	Quantity       int     `json:"quantity"`
-	UnitPrice      float64 `json:"unitPrice"`
-	Subtotal       float64 `json:"subtotal"`
+	ID             int                       `json:"id,string"`
+	BurgerID       int                       `json:"burgerId,string"`
+	BurgerName     string                    `json:"burgerName"`
+	BurgerImageURL *string                   `json:"burgerImageUrl"`
+	Quantity       int                       `json:"quantity"`
+	UnitPrice      float64                   `json:"unitPrice"`
+	Subtotal       float64                   `json:"subtotal"`
+	Options        []OrderItemOptionSnapshot `json:"options"`
+}
+
+type OptionGroup struct {
+	ID           int      `json:"id,string"`
+	Name         string   `json:"name"`
+	IsRequired   bool     `json:"isRequired"`
+	MinSelect    int      `json:"minSelect"`
+	MaxSelect    int      `json:"maxSelect"`
+	DisplayOrder int      `json:"displayOrder"`
+	Options      []Option `json:"options"`
+}
+
+type Option struct {
+	ID           int     `json:"id,string"`
+	GroupID      int     `json:"groupId,string"`
+	Name         string  `json:"name"`
+	PriceDelta   float64 `json:"priceDelta"`
+	IsAvailable  bool    `json:"isAvailable"`
+	DisplayOrder int     `json:"displayOrder"`
+}
+
+type OrderItemOptionSnapshot struct {
+	ID         int     `json:"id,string"`
+	OptionID   *int    `json:"optionId,string"` // 削除されると null
+	GroupName  string  `json:"groupName"`
+	OptionName string  `json:"optionName"`
+	PriceDelta float64 `json:"priceDelta"`
 }
 
 type DashboardStats struct {

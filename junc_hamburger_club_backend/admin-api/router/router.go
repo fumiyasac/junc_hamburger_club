@@ -27,6 +27,7 @@ func Setup(db *sql.DB, cfg *config.Config) *gin.Engine {
 	userH := &handlers.UserHandler{DB: db}
 	dashH := &handlers.DashboardHandler{DB: db}
 	pickupH := &handlers.PickupHandler{DB: db}
+	optionsH := &handlers.OptionsHandler{DB: db}
 
 	api := r.Group("/api/v1/admin")
 
@@ -55,6 +56,16 @@ func Setup(db *sql.DB, cfg *config.Config) *gin.Engine {
 		protected.GET("/pickup-settings", pickupH.GetSettings)
 		protected.PUT("/pickup-settings", pickupH.UpdateSettings)
 		protected.GET("/pickup-slots", pickupH.GetSlots)
+
+		// オプション管理
+		protected.GET("/option-groups", optionsH.ListGroups)
+		protected.POST("/option-groups", optionsH.CreateGroup)
+		protected.PUT("/option-groups/:id", optionsH.UpdateGroup)
+		protected.POST("/options", optionsH.CreateOption)
+		protected.PUT("/options/:id", optionsH.UpdateOption)
+		protected.PUT("/options/:id/availability", optionsH.ToggleAvailability)
+		protected.GET("/burgers/:id/option-groups", optionsH.ListBurgerGroups)
+		protected.PUT("/burgers/:id/option-groups", optionsH.SetBurgerGroups)
 	}
 
 	return r

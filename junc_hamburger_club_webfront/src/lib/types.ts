@@ -6,6 +6,24 @@ export interface Category {
   displayOrder: number
 }
 
+export interface Option {
+  id: string
+  name: string
+  priceDelta: number
+  isAvailable: boolean
+  displayOrder: number
+}
+
+export interface OptionGroup {
+  id: string
+  name: string
+  isRequired: boolean
+  minSelect: number
+  maxSelect: number
+  displayOrder: number
+  options: Option[]
+}
+
 export interface Burger {
   id: string
   categoryId: string
@@ -22,6 +40,23 @@ export interface Burger {
   calories: number | null
   ingredients: string[]
   tags: string[]
+  // 詳細取得 (GET /burgers/:id) でのみ含まれる
+  optionGroups?: OptionGroup[]
+}
+
+export interface OrderItemOptionSnapshot {
+  id: string
+  optionId: string | null
+  groupName: string
+  optionName: string
+  priceDelta: number
+}
+
+export interface CartItemOption {
+  id: string
+  groupName: string
+  name: string
+  priceDelta: number
 }
 
 export interface CartItem {
@@ -31,7 +66,9 @@ export interface CartItem {
   burgerPrice: number
   burgerImageUrl: string | null
   quantity: number
+  unitPrice: number
   subtotal: number
+  options: CartItemOption[]
 }
 
 export interface Cart {
@@ -49,6 +86,7 @@ export interface OrderItem {
   quantity: number
   unitPrice: number
   subtotal: number
+  options?: OrderItemOptionSnapshot[]
 }
 
 export interface Order {

@@ -88,7 +88,53 @@ export async function getBurgerById(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  res.json({ success: true, data: formatBurger(rows[0] as BurgerRow) });
+  // 詳細のみ optionGroups を含める (一覧は含めない)
+  const [groupRows] = await pool.query<RowDataPacket[]>(
+    `SELECT og.id, og.name, og.is_required, og.min_select, og.max_select, bog.display_order
+     FROM burger_option_groups bog
+     JOIN option_groups og ON og.id = bog.group_id
+     WHERE bog.burger_id = ?
+     ORDER BY bog.display_order, og.id`,
+    [id],
+  );
+  const groupIds = groupRows.map((r) => r['id'] as number);
+  const [optionRows] = groupIds.length > 0
+    ? await pool.query<RowDataPacket[]>(
+        `SELECT id, group_id, name, price_delta, is_available, display_order
+         FROM options
+         WHERE group_id IN (?)
+         ORDER BY display_order, id`,
+        [groupIds],
+      )
+    : [[]];
+
+  const optionsByGroup = new Map<number, Array<Record<string, unknown>>>();
+  for (const o of optionRows as RowDataPacket[]) {
+    const gid = o['group_id'] as number;
+    if (!optionsByGroup.has(gid)) optionsByGroup.set(gid, []);
+    optionsByGroup.get(gid)!.push({
+      id: String(o['id']),
+      name: o['name'],
+      priceDelta: parseFloat(o['price_delta']),
+      isAvailable: Boolean(o['is_available']),
+      displayOrder: o['display_order'],
+    });
+  }
+
+  const optionGroups = (groupRows as RowDataPacket[]).map((g) => ({
+    id: String(g['id']),
+    name: g['name'],
+    isRequired: Boolean(g['is_required']),
+    minSelect: g['min_select'],
+    maxSelect: g['max_select'],
+    displayOrder: g['display_order'],
+    options: optionsByGroup.get(g['id'] as number) ?? [],
+  }));
+
+  res.json({
+    success: true,
+    data: { ...formatBurger(rows[0] as BurgerRow), optionGroups },
+  });
 }
 
 export async function getCategories(_req: Request, res: Response): Promise<void> {
