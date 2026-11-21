@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	apierr "github.com/junc/admin-api/errors"
 	"github.com/junc/admin-api/middleware"
 	"github.com/junc/admin-api/models"
 	"golang.org/x/crypto/bcrypt"
@@ -21,7 +22,7 @@ type AuthHandler struct {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req models.AdminLoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		apierr.Validation(c, err.Error(), nil)
 		return
 	}
 
@@ -30,12 +31,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	adminPasswordHash := os.Getenv("ADMIN_PASSWORD_HASH")
 
 	if req.Email != adminEmail {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "invalid credentials"})
+		apierr.AdminLoginFailed(c)
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(adminPasswordHash), []byte(req.Password)); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "invalid credentials"})
+		apierr.AdminLoginFailed(c)
 		return
 	}
 
@@ -51,7 +52,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenStr, err := token.SignedString([]byte(h.JWTSecret))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "failed to generate token"})
+		apierr.Internal(c, "トークンの生成に失敗しました")
 		return
 	}
 

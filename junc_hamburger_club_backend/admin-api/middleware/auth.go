@@ -1,11 +1,12 @@
 package middleware
 
 import (
-	"net/http"
+	"errors"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	apierr "github.com/junc/admin-api/errors"
 )
 
 type AdminClaims struct {
@@ -18,7 +19,8 @@ func AdminAuth(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "error": "authorization token required"})
+			apierr.AuthTokenMissing(c)
+			c.Abort()
 			return
 		}
 
@@ -30,7 +32,12 @@ func AdminAuth(secret string) gin.HandlerFunc {
 		})
 
 		if err != nil || !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "error": "invalid or expired token"})
+			if errors.Is(err, jwt.ErrTokenExpired) {
+				apierr.AuthTokenExpired(c)
+			} else {
+				apierr.AuthTokenInvalid(c)
+			}
+			c.Abort()
 			return
 		}
 

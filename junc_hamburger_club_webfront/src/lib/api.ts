@@ -1,16 +1,37 @@
 const USER_API = process.env.NEXT_PUBLIC_USER_API_URL ?? 'http://localhost:3000/api/v1'
 const ADMIN_API = process.env.NEXT_PUBLIC_ADMIN_API_URL ?? 'http://localhost:8080/api/v1/admin'
 
+// 統一エラーレスポンス形式 ({success:false, error:{code,message,details}}) に対応。
+// error 文字列 (旧形式) のフォールバックは無い (破壊的変更)。
+export class ApiError extends Error {
+  readonly code: string
+  readonly details?: Record<string, unknown>
+  readonly httpStatus: number
+  constructor(code: string, message: string, httpStatus: number, details?: Record<string, unknown>) {
+    super(message)
+    this.code = code
+    this.httpStatus = httpStatus
+    this.details = details
+    this.name = 'ApiError'
+  }
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     ...options,
   })
-  const json = await res.json()
-  if (!res.ok || !json.success) {
-    throw new Error(json.error ?? `HTTP ${res.status}`)
+  const json = await res.json().catch(() => null) as
+    | { success: true; data: T }
+    | { success: false; error: { code: string; message: string; details?: Record<string, unknown> } }
+    | null
+  if (!res.ok || !json || json.success === false) {
+    if (json && json.success === false && json.error) {
+      throw new ApiError(json.error.code, json.error.message, res.status, json.error.details)
+    }
+    throw new ApiError('INTERNAL_ERROR', `HTTP ${res.status}`, res.status)
   }
-  return json.data as T
+  return json.data
 }
 
 function authHeader(token: string) {

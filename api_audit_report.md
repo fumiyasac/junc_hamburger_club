@@ -204,3 +204,45 @@
 - `junc_hamburger_club_webfront/src/lib/types.ts`
 - `junc_hamburger_club_webfront/src/lib/api.ts`
 - `junc_hamburger_club_mobile/lib/data/models/*.dart`
+
+---
+
+# 2026-11-21 追補: バックエンド API 整備 (feature/impprove_backend_api)
+
+Flutter モバイルの実 API 接続前整備。
+
+## 変更サマリ
+
+| カテゴリ | Before | After |
+|---|---|---|
+| エラー形式 | `{success:false, error:"文字列"}` + 一部に `code`/`details` 混在 | `{success:false, error:{code,message,details}}` 完全統一 |
+| エラーコード | 15 個 (snake_case) / admin-api は 0 個 | 35+ (UPPER_SNAKE_CASE) / user-api + admin-api で共有 |
+| 認証エラー | `AUTH_TOKEN_MISSING` 一種類のみ | missing / expired / invalid / user_inactive / forbidden |
+| 注文冪等性 | なし | `Idempotency-Key` ヘッダ (任意) + `idempotency_keys` テーブル |
+| 注文プレビュー | なし | `POST /orders/preview` で warnings + canPlaceOrder |
+| 店舗/アプリ情報 | なし | `GET /store`, `GET /app-config`, `PUT /admin/app-config` |
+| ステータス遷移制御 | user-api はキャンセルを `received` のみ、admin-api は全値許可 | 遷移表を TS/Go で同期 (`received→preparing→ready→completed` + `preparing` までキャンセル可) |
+
+## 詳細仕様の正本
+
+- エラーコード一覧: [`docs/error_codes.md`](docs/error_codes.md)
+- 遷移表: `user-api/src/lib/order_status.ts` + `admin-api/models/order_status.go` + `webfront/src/lib/order_status.ts` の 3 場所で同期 (ユニットテストで担保)
+
+## 動作確認済みシナリオ
+
+1. 認証エラー 5 種類が区別された code で返却
+2. バリデーション `details.issues[]` 構造化
+3. 注文プレビューの items / subtotal / tax / total / pickup / warnings / canPlaceOrder
+4. Idempotency-Key 同じキー 2 回 → 同じ注文番号 (レスポンス再生)
+5. Idempotency-Key 異なる body → `ORDER_IDEMPOTENCY_CONFLICT` (422)
+6. Idempotency-Key 並列 5 本 → 1 本成功 + 4 本 `ORDER_IDEMPOTENCY_IN_PROGRESS`、DB 上の orders は 1 件のみ
+7. `GET /store` が `openingHours` (曜日別) / `todayStatus` を返却
+8. `GET /app-config` + `PUT /admin/app-config` の部分更新
+9. 不正ステータス遷移 → `ORDER_INVALID_STATUS_TRANSITION` with `details.{current,requested,allowed}`
+10. `received→ready` 失敗、`received→preparing→cancelled` 成功、`ready→cancelled` 失敗
+
+## テスト結果
+
+- user-api `npx jest` → 53 passed (options 17 / pickup_rules 27 / order_status 9)
+- admin-api `go test ./models/...` → pass
+- webfront `tsc --noEmit` + `next build` → clean

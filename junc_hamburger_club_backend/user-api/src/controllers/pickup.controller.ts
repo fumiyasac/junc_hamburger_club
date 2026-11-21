@@ -3,14 +3,16 @@ import { pool } from '../config/database';
 import { RowDataPacket } from 'mysql2';
 import { PickupSettingsRow } from '../types';
 import { generateSlots, settingsFromRow } from '../lib/pickup_rules';
+import { AppError } from '../lib/errors';
 
 // ─── 枠一覧 (認証不要) ───────────────────────────────────────────────
 
 export async function getPickupSlots(req: Request, res: Response): Promise<void> {
   const date = req.query.date as string;
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    res.status(400).json({ success: false, error: 'date is required (YYYY-MM-DD)' });
-    return;
+    throw new AppError('VALIDATION_FAILED', '日付は YYYY-MM-DD 形式で指定してください', 400, {
+      issues: [{ field: 'date', message: 'required YYYY-MM-DD' }],
+    });
   }
 
   // 設定取得
@@ -18,8 +20,7 @@ export async function getPickupSlots(req: Request, res: Response): Promise<void>
     'SELECT * FROM pickup_settings WHERE store_id = 1',
   );
   if (settingsRows.length === 0) {
-    res.status(500).json({ success: false, error: 'Pickup settings not configured' });
-    return;
+    throw new AppError('APP_CONFIG_NOT_FOUND', '受け取り枠設定が初期化されていません', 500);
   }
   const settings = settingsFromRow(settingsRows[0] as PickupSettingsRow);
 

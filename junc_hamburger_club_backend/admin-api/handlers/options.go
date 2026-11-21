@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	apierr "github.com/junc/admin-api/errors"
 	"github.com/junc/admin-api/models"
 )
 
@@ -22,7 +23,7 @@ func (h *OptionsHandler) ListGroups(c *gin.Context) {
 		FROM option_groups
 		ORDER BY display_order, id`)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	defer rows.Close()
@@ -43,7 +44,7 @@ func (h *OptionsHandler) ListGroups(c *gin.Context) {
 		FROM options
 		ORDER BY display_order, id`)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	defer optRows.Close()
@@ -92,11 +93,11 @@ func (r *createGroupRequest) validate() string {
 func (h *OptionsHandler) CreateGroup(c *gin.Context) {
 	var req createGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		apierr.Validation(c, err.Error(), nil)
 		return
 	}
 	if msg := req.validate(); msg != "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": msg})
+		apierr.Validation(c, msg, nil)
 		return
 	}
 	res, err := h.DB.Exec(
@@ -105,7 +106,7 @@ func (h *OptionsHandler) CreateGroup(c *gin.Context) {
 		req.Name, req.IsRequired, req.MinSelect, req.MaxSelect, req.DisplayOrder,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	id, _ := res.LastInsertId()
@@ -116,11 +117,11 @@ func (h *OptionsHandler) UpdateGroup(c *gin.Context) {
 	id := c.Param("id")
 	var req createGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		apierr.Validation(c, err.Error(), nil)
 		return
 	}
 	if msg := req.validate(); msg != "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": msg})
+		apierr.Validation(c, msg, nil)
 		return
 	}
 	res, err := h.DB.Exec(
@@ -129,11 +130,11 @@ func (h *OptionsHandler) UpdateGroup(c *gin.Context) {
 		req.Name, req.IsRequired, req.MinSelect, req.MaxSelect, req.DisplayOrder, id,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	if a, _ := res.RowsAffected(); a == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "group not found"})
+		apierr.RespondCode(c, "OPTION_GROUP_NOT_FOUND", "指定のオプショングループが見つかりません", http.StatusNotFound, nil)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "updated"})
@@ -159,11 +160,11 @@ func (r *createOptionRequest) validate() string {
 func (h *OptionsHandler) CreateOption(c *gin.Context) {
 	var req createOptionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		apierr.Validation(c, err.Error(), nil)
 		return
 	}
 	if msg := req.validate(); msg != "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": msg})
+		apierr.Validation(c, msg, nil)
 		return
 	}
 	res, err := h.DB.Exec(
@@ -172,7 +173,7 @@ func (h *OptionsHandler) CreateOption(c *gin.Context) {
 		req.GroupID, req.Name, req.PriceDelta, req.IsAvailable, req.DisplayOrder,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	id, _ := res.LastInsertId()
@@ -183,11 +184,11 @@ func (h *OptionsHandler) UpdateOption(c *gin.Context) {
 	id := c.Param("id")
 	var req createOptionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		apierr.Validation(c, err.Error(), nil)
 		return
 	}
 	if msg := req.validate(); msg != "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": msg})
+		apierr.Validation(c, msg, nil)
 		return
 	}
 	res, err := h.DB.Exec(
@@ -196,11 +197,11 @@ func (h *OptionsHandler) UpdateOption(c *gin.Context) {
 		req.GroupID, req.Name, req.PriceDelta, req.IsAvailable, req.DisplayOrder, id,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	if a, _ := res.RowsAffected(); a == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "option not found"})
+		apierr.RespondCode(c, "OPTION_NOT_FOUND", "指定のオプションが見つかりません", http.StatusNotFound, nil)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "updated"})
@@ -213,11 +214,11 @@ func (h *OptionsHandler) ToggleAvailability(c *gin.Context) {
 		`UPDATE options SET is_available = NOT is_available WHERE id = ?`, id,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	if a, _ := res.RowsAffected(); a == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "option not found"})
+		apierr.RespondCode(c, "OPTION_NOT_FOUND", "指定のオプションが見つかりません", http.StatusNotFound, nil)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "availability toggled"})
@@ -231,7 +232,7 @@ func (h *OptionsHandler) ListBurgerGroups(c *gin.Context) {
 	rows, err := h.DB.Query(`
 		SELECT group_id FROM burger_option_groups WHERE burger_id = ?`, burgerID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	defer rows.Close()
@@ -252,14 +253,14 @@ func (h *OptionsHandler) SetBurgerGroups(c *gin.Context) {
 		GroupIDs []string `json:"groupIds"`
 	}
 	if err := c.ShouldBindJSON(&raw); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		apierr.Validation(c, err.Error(), nil)
 		return
 	}
 
 	// バーガー存在確認
 	var exists int
 	if err := h.DB.QueryRow("SELECT 1 FROM burgers WHERE id = ?", burgerID).Scan(&exists); err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "burger not found"})
+		apierr.BurgerNotFound(c, burgerID)
 		return
 	}
 
@@ -269,7 +270,7 @@ func (h *OptionsHandler) SetBurgerGroups(c *gin.Context) {
 	for _, gidStr := range raw.GroupIDs {
 		gid, err := strconv.Atoi(gidStr)
 		if err != nil || gid <= 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid groupId: " + gidStr})
+			apierr.RespondCode(c, "OPTION_GROUP_INVALID_ID", "groupId の指定が不正です", http.StatusBadRequest, map[string]any{"value": gidStr})
 			return
 		}
 		if !seen[gid] {
@@ -280,13 +281,13 @@ func (h *OptionsHandler) SetBurgerGroups(c *gin.Context) {
 
 	tx, err := h.DB.Begin()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	defer tx.Rollback()
 
 	if _, err := tx.Exec("DELETE FROM burger_option_groups WHERE burger_id = ?", burgerID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	for _, gid := range gids {
@@ -296,17 +297,17 @@ func (h *OptionsHandler) SetBurgerGroups(c *gin.Context) {
 			burgerID, gid, gid,
 		)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+			apierr.Internal(c, err.Error())
 			return
 		}
 		if n, _ := res.RowsAffected(); n == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "unknown groupId: " + strconv.Itoa(gid)})
+			apierr.RespondCode(c, "OPTION_GROUP_NOT_FOUND", "指定のオプショングループが見つかりません", http.StatusNotFound, map[string]any{"groupId": strconv.Itoa(gid)})
 			return
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "groups updated"})

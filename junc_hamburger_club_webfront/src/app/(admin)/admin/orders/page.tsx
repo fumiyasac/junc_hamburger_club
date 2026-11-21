@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAdminAuth } from '@/hooks/useAdminAuth'
 import { adminOrderApi } from '@/lib/api'
 import { AdminOrder } from '@/lib/types'
+import { allowedNext, OrderStatus } from '@/lib/order_status'
 import { formatDate, formatPickupTime, formatPrice, ORDER_STATUS_COLOR, ORDER_STATUS_LABEL, toJstDateKey } from '@/lib/utils'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 
@@ -172,20 +173,18 @@ export default function AdminOrdersPage() {
                   </div>
 
                   <div className="mt-3 flex gap-2 flex-wrap">
-                    {['received', 'preparing', 'ready', 'completed'].map((s) => (
+                    {allowedNext(order.status as OrderStatus).map((s) => (
                       <button
                         key={s}
                         onClick={() => updateStatus(order.id, s)}
-                        disabled={order.status === s}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
-                          order.status === s
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-white border border-gray-200 hover:border-primary hover:text-primary'
-                        }`}
+                        className="px-3 py-1 rounded-lg text-xs font-bold transition-colors bg-white border border-gray-200 hover:border-primary hover:text-primary"
                       >
-                        {STATUS_LABELS[s]}
+                        → {STATUS_LABELS[s]}
                       </button>
                     ))}
+                    {allowedNext(order.status as OrderStatus).length === 0 && (
+                      <span className="text-xs text-gray-400">終端ステータス</span>
+                    )}
                   </div>
                 </div>
               )

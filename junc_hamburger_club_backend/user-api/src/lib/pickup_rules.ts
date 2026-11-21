@@ -170,12 +170,21 @@ export function generateSlots(
 // ─── 単一 pickup_at 検証 (注文作成時) ─────────────────────────────────
 
 export type PickupValidationError =
-  | 'pickup_invalid_format'
-  | 'pickup_boundary'
-  | 'pickup_closed_day'
-  | 'pickup_past_lookahead'
-  | 'pickup_out_of_hours'
-  | 'pickup_lead_time';
+  | 'PICKUP_INVALID_FORMAT'
+  | 'PICKUP_BOUNDARY'
+  | 'PICKUP_CLOSED_DAY'
+  | 'PICKUP_PAST_LOOKAHEAD'
+  | 'PICKUP_OUT_OF_HOURS'
+  | 'PICKUP_LEAD_TIME';
+
+export const PICKUP_VALIDATION_MESSAGES: Record<PickupValidationError, string> = {
+  PICKUP_INVALID_FORMAT: '受け取り時刻の形式が不正です',
+  PICKUP_BOUNDARY: '受け取り時刻は枠の区切り時刻に合わせてください',
+  PICKUP_CLOSED_DAY: '指定日は定休日です',
+  PICKUP_PAST_LOOKAHEAD: '予約受付期間外です',
+  PICKUP_OUT_OF_HOURS: '営業時間外です',
+  PICKUP_LEAD_TIME: '受け取り時刻が早すぎます',
+};
 
 export function validatePickupAt(
   pickupAtIso: string,
@@ -185,10 +194,10 @@ export function validatePickupAt(
   // Step 1: format — TZ offset 必須 ('Z' または '+09:00' 等)。
   // offset 無しだと Node のローカル TZ 解釈で JST/UTC 混在のバグを招く。
   if (typeof pickupAtIso !== 'string' || !/([+-]\d{2}:?\d{2}|Z)$/.test(pickupAtIso)) {
-    return { ok: false, code: 'pickup_invalid_format' };
+    return { ok: false, code: 'PICKUP_INVALID_FORMAT' };
   }
   const t = new Date(pickupAtIso);
-  if (isNaN(t.getTime())) return { ok: false, code: 'pickup_invalid_format' };
+  if (isNaN(t.getTime())) return { ok: false, code: 'PICKUP_INVALID_FORMAT' };
 
   // t は real UTC Date。JST に +9h シフトして wall-clock 分解する。
   const jstShifted = new Date(t.getTime() + 9 * 60 * 60 * 1000);
@@ -200,32 +209,32 @@ export function validatePickupAt(
 
   // Step 2: 境界 (秒=0 かつ 分が interval の倍数)
   if (seconds !== 0 || totalMin % settings.slotIntervalMin !== 0) {
-    return { ok: false, code: 'pickup_boundary' };
+    return { ok: false, code: 'PICKUP_BOUNDARY' };
   }
 
   // Step 3: 定休日
   const weekday = jstWeekday(t);
   if (settings.closedWeekdays.includes(weekday)) {
-    return { ok: false, code: 'pickup_closed_day' };
+    return { ok: false, code: 'PICKUP_CLOSED_DAY' };
   }
 
   // Step 4: lookahead
   const diff = diffDaysJst(dateJst, now);
   if (diff < 0 || diff >= settings.lookaheadDays) {
-    return { ok: false, code: 'pickup_past_lookahead' };
+    return { ok: false, code: 'PICKUP_PAST_LOOKAHEAD' };
   }
 
   // Step 5: 営業時間
   const openMin = timeToMinutes(settings.openTime);
   const closeMin = timeToMinutes(settings.closeTime);
   if (totalMin < openMin || totalMin > closeMin - settings.slotIntervalMin) {
-    return { ok: false, code: 'pickup_out_of_hours' };
+    return { ok: false, code: 'PICKUP_OUT_OF_HOURS' };
   }
 
   // Step 6: lead_time (当日のみ)
   if (diff === 0) {
     const earliest = new Date(now.getTime() + settings.leadTimeMin * 60 * 1000);
-    if (t < earliest) return { ok: false, code: 'pickup_lead_time' };
+    if (t < earliest) return { ok: false, code: 'PICKUP_LEAD_TIME' };
   }
 
   // 正規化: 秒を 0、ミリ秒を 0 に揃えた Date (JST 埋め込み UTC) を返す

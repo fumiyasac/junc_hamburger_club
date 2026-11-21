@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	apierr "github.com/junc/admin-api/errors"
 	"github.com/junc/admin-api/models"
 )
 
@@ -59,7 +60,7 @@ func (h *OrderHandler) ListOrders(c *gin.Context) {
 		ORDER BY `+orderBy+`
 		LIMIT ? OFFSET ?`, args...)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	defer rows.Close()
@@ -109,11 +110,11 @@ func (h *OrderHandler) GetOrder(c *gin.Context) {
 			&o.Status, &o.TotalAmount, &o.TaxAmount, &o.Notes, &o.EstimatedReadyAt, &o.PickupAt,
 			&o.CreatedAt, &o.UpdatedAt)
 	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "order not found"})
+		apierr.OrderNotFound(c, id)
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 
@@ -249,13 +250,12 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 	id := c.Param("id")
 	var req models.UpdateOrderStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		apierr.Validation(c, err.Error(), nil)
 		return
 	}
 
-	validStatuses := map[string]bool{"received": true, "preparing": true, "ready": true, "completed": true, "cancelled": true}
-	if !validStatuses[req.Status] {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid status"})
+	if !models.IsValidOrderStatus(req.Status) {
+		apierr.Validation(c, "ステータス値が不正です", map[string]any{"value": req.Status})
 		return
 	}
 
@@ -263,7 +263,7 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 	// "非 cancelled → cancelled" 遷移のときのみ counter を減算する
 	tx, err := h.DB.Begin()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	defer func() { _ = tx.Rollback() }()
@@ -272,18 +272,25 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 	var pickupAt sql.NullTime
 	err = tx.QueryRow("SELECT status, pickup_at FROM orders WHERE id = ? FOR UPDATE", id).Scan(&currentStatus, &pickupAt)
 	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "order not found"})
+		apierr.OrderNotFound(c, id)
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
+		return
+	}
+
+	// 遷移表に沿った可否判定
+	if !models.CanTransition(models.OrderStatus(currentStatus), models.OrderStatus(req.Status)) {
+		apierr.OrderInvalidStatusTransition(c, currentStatus, req.Status,
+			models.AllowedNextStrings(currentStatus))
 		return
 	}
 
 	if _, err := tx.Exec(
 		"UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
 		req.Status, id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 
@@ -291,13 +298,13 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 		if _, err := tx.Exec(
 			"UPDATE pickup_slot_counters SET reserved_count = GREATEST(reserved_count - 1, 0) WHERE store_id = 1 AND slot_at = ?",
 			pickupAt.Time); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+			apierr.Internal(c, err.Error())
 			return
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 

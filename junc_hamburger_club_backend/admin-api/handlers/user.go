@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	apierr "github.com/junc/admin-api/errors"
 	"github.com/junc/admin-api/models"
 )
 
@@ -25,7 +26,7 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 		SELECT id, name, email, profile_image_url, is_active, created_at, updated_at
 		FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	defer rows.Close()
@@ -59,11 +60,11 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 		FROM users WHERE id = ?`, id).
 		Scan(&u.ID, &u.Name, &u.Email, &u.ProfileImageURL, &u.IsActive, &u.CreatedAt, &u.UpdatedAt)
 	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "user not found"})
+		apierr.ResourceNotFound(c, "user", id)
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 
@@ -75,12 +76,12 @@ func (h *UserHandler) ToggleUserActive(c *gin.Context) {
 	result, err := h.DB.Exec(
 		"UPDATE users SET is_active = NOT is_active, updated_at = CURRENT_TIMESTAMP WHERE id = ?", id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	affected, _ := result.RowsAffected()
 	if affected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "user not found"})
+		apierr.ResourceNotFound(c, "user", id)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "user status toggled"})

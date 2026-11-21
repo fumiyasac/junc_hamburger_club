@@ -12,6 +12,8 @@ import orderRoutes from './routes/order.routes';
 import userRoutes from './routes/user.routes';
 import newsRoutes from './routes/news.routes';
 import pickupRoutes from './routes/pickup.routes';
+import storeRoutes from './routes/store.routes';
+import appConfigRoutes from './routes/app_config.routes';
 
 const app = express();
 
@@ -30,6 +32,8 @@ app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/news', newsRoutes);
 app.use('/api/v1/pickup-slots', pickupRoutes);
+app.use('/api/v1/store', storeRoutes);
+app.use('/api/v1/app-config', appConfigRoutes);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'junc-user-api' });

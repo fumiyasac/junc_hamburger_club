@@ -42,8 +42,11 @@ Flutter モバイルアプリ・TypeScript/Go バックエンド・Next.js Web �
 - カート管理（数量変更・削除）
 - 注文作成・注文完了画面
 - 注文ステータス リアルタイム追跡 (5 秒ポーリング)
-- 管理画面 (ダッシュボード・注文管理・バーガー管理・ユーザー管理・オプション管理)
+- 管理画面 (ダッシュボード・注文管理・バーガー管理・ユーザー管理・オプション管理・アプリ設定)
 - トッピング・オプション選択（商品カスタマイズ / サーバー側価格計算 / 注文スナップショット）
+- 統一エラー形式 (`{error:{code,message,details}}`) — 詳細は [`docs/error_codes.md`](docs/error_codes.md)
+- 注文作成の冪等性 (`Idempotency-Key` ヘッダ)、注文プレビュー (POST /orders/preview)、注文ステータス遷移の制御 (`received→preparing→ready→completed` + キャンセルは `preparing` まで)
+- 店舗情報 (`GET /store`) / アプリ設定 (`GET /app-config` + `PUT /admin/app-config`) — モバイル起動時向け
 
 ---
 

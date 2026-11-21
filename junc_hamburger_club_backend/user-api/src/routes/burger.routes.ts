@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { getBurgers, getBurgerById, getCategories, searchBurgers } from '../controllers/burger.controller';
+import { wrapAsync } from '../lib/errors';
 
 const router = Router();
 
-router.get('/', getBurgers);
-router.get('/search', searchBurgers);
-router.get('/categories', getCategories);
-router.get('/:id', getBurgerById);
+router.get('/', wrapAsync(getBurgers));
+router.get('/search', wrapAsync(searchBurgers));
+router.get('/categories', wrapAsync(getCategories));
+router.get('/:id', wrapAsync(getBurgerById));
 
 export default router;

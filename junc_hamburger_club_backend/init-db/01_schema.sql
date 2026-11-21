@@ -272,3 +272,34 @@ CREATE TABLE IF NOT EXISTS news (
   KEY idx_news_category (category),
   CONSTRAINT chk_news_category CHECK (category IN ('store','menu','campaign','app'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ─── 注文作成の冪等性サポート ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS idempotency_keys (
+  user_id INT NOT NULL,
+  idempotency_key VARCHAR(100) NOT NULL,
+  request_hash CHAR(64) NOT NULL,
+  status ENUM('PENDING','SUCCEEDED','FAILED') NOT NULL,
+  order_id INT NULL,
+  response_body JSON NULL,
+  response_status SMALLINT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, idempotency_key),
+  KEY idx_created (created_at),
+  CONSTRAINT fk_idem_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_idem_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ─── アプリ設定 (バージョン・メンテナンス) ─────────────────────────────
+CREATE TABLE IF NOT EXISTS app_config (
+  id TINYINT NOT NULL DEFAULT 1,
+  maintenance_mode BOOLEAN NOT NULL DEFAULT FALSE,
+  maintenance_message TEXT NULL,
+  ios_min_version VARCHAR(20) NOT NULL DEFAULT '1.0.0',
+  ios_latest_version VARCHAR(20) NOT NULL DEFAULT '1.0.0',
+  android_min_version VARCHAR(20) NOT NULL DEFAULT '1.0.0',
+  android_latest_version VARCHAR(20) NOT NULL DEFAULT '1.0.0',
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT chk_app_config_singleton CHECK (id = 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

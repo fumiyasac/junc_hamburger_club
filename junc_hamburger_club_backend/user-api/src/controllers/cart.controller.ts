@@ -8,7 +8,9 @@ import {
   OptionDef,
   OptionGroupDef,
   validateOptionSelection,
+  VALIDATION_MESSAGES,
 } from '../lib/options';
+import { AppError, Errors } from '../lib/errors';
 
 // ─── ヘルパー: cart item + options + price を組み立てる ───────────────
 
@@ -84,7 +86,10 @@ export async function getCart(req: AuthRequest, res: Response): Promise<void> {
   const subtotal = items.reduce((s, i) => s + i.subtotal, 0);
   res.json({
     success: true,
-    data: { items, subtotal, tax: subtotal * 0.1, total: subtotal * 1.1 },
+    data: (() => {
+      const tax = Math.round(subtotal * 0.1);
+      return { items, subtotal, tax, total: subtotal + tax };
+    })(),
   });
 }
 
@@ -102,8 +107,7 @@ export async function addToCart(req: AuthRequest, res: Response): Promise<void> 
     [burgerId],
   );
   if (burgerRows.length === 0) {
-    res.status(404).json({ success: false, error: 'Burger not found or unavailable' });
-    return;
+    throw new AppError('BURGER_UNAVAILABLE', 'このバーガーは現在販売されていません', 400, { burgerId: String(burgerId) });
   }
 
   // バーガーに適用されるグループ ID
@@ -152,13 +156,7 @@ export async function addToCart(req: AuthRequest, res: Response): Promise<void> 
     allGroups,
   });
   if (!result.ok) {
-    res.status(400).json({
-      success: false,
-      error: 'Invalid options',
-      code: result.code,
-      details: result.details,
-    });
-    return;
+    throw new AppError(result.code, VALIDATION_MESSAGES[result.code], 400, result.details);
   }
 
   const uniqueIds = result.uniqueOptionIds;
@@ -211,12 +209,7 @@ export async function updateCartItem(req: AuthRequest, res: Response): Promise<v
 
   // オプション変更は非対応 (docs/options_rules.md §5)
   if (selectedOptionIds !== undefined) {
-    res.status(400).json({
-      success: false,
-      error: 'Options cannot be changed on an existing cart item. Remove and re-add.',
-      code: 'cart_item_options_immutable',
-    });
-    return;
+    throw Errors.cartItemOptionsImmutable();
   }
 
   if (quantity <= 0) {
@@ -230,8 +223,7 @@ export async function updateCartItem(req: AuthRequest, res: Response): Promise<v
     [quantity, itemId, userId],
   );
   if (result.affectedRows === 0) {
-    res.status(404).json({ success: false, error: 'Cart item not found' });
-    return;
+    throw Errors.cartItemNotFound(itemId);
   }
   res.json({ success: true, message: 'Cart updated' });
 }

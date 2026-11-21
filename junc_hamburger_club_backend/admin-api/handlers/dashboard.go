@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	apierr "github.com/junc/admin-api/errors"
 	"github.com/junc/admin-api/models"
 )
 
@@ -24,7 +25,7 @@ func (h *DashboardHandler) GetStats(c *gin.Context) {
 			SUM(CASE WHEN status IN ('received','preparing','ready') THEN 1 ELSE 0 END)
 		FROM orders`)
 	if err := row.Scan(&stats.TotalOrders, &stats.TodayOrders, &stats.TotalRevenue, &stats.TodayRevenue, &stats.ActiveOrders); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 

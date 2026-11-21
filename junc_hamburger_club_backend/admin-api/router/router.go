@@ -28,6 +28,7 @@ func Setup(db *sql.DB, cfg *config.Config) *gin.Engine {
 	dashH := &handlers.DashboardHandler{DB: db}
 	pickupH := &handlers.PickupHandler{DB: db}
 	optionsH := &handlers.OptionsHandler{DB: db}
+	appConfigH := &handlers.AppConfigHandler{DB: db}
 
 	api := r.Group("/api/v1/admin")
 
@@ -66,6 +67,10 @@ func Setup(db *sql.DB, cfg *config.Config) *gin.Engine {
 		protected.PUT("/options/:id/availability", optionsH.ToggleAvailability)
 		protected.GET("/burgers/:id/option-groups", optionsH.ListBurgerGroups)
 		protected.PUT("/burgers/:id/option-groups", optionsH.SetBurgerGroups)
+
+		// アプリ設定
+		protected.GET("/app-config", appConfigH.Get)
+		protected.PUT("/app-config", appConfigH.Update)
 	}
 
 	return r

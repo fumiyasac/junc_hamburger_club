@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { pool } from '../config/database';
 import { UserRow } from '../types';
 import { RowDataPacket } from 'mysql2';
+import { AppError } from '../lib/errors';
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'secret';
 const JWT_EXPIRES_IN = '7d';
@@ -20,8 +21,7 @@ export async function register(req: Request, res: Response): Promise<void> {
     [email]
   );
   if (existing.length > 0) {
-    res.status(409).json({ success: false, error: 'Email already registered' });
-    return;
+    throw new AppError('USER_EMAIL_IN_USE', 'このメールアドレスは既に登録されています', 409);
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
@@ -57,8 +57,7 @@ export async function login(req: Request, res: Response): Promise<void> {
   const user = rows[0] as UserRow | undefined;
 
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-    res.status(401).json({ success: false, error: 'Invalid email or password' });
-    return;
+    throw new AppError('USER_LOGIN_FAILED', 'メールアドレスまたはパスワードが違います', 401);
   }
 
   const token = signToken(user.id, user.email);

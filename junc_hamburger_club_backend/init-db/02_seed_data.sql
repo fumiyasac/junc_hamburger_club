@@ -212,3 +212,8 @@ SELECT b.id, g.id, g.display_order
 FROM burgers b
 CROSS JOIN option_groups g
 WHERE g.id IN (2, 3, 4);
+
+-- ─── app_config 初期値 ──────────────────────────────────────────────
+INSERT INTO app_config (id, maintenance_mode, ios_min_version, ios_latest_version, android_min_version, android_latest_version)
+VALUES (1, FALSE, '1.0.0', '1.0.0', '1.0.0', '1.0.0')
+ON DUPLICATE KEY UPDATE id = id;
