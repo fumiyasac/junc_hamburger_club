@@ -28,6 +28,8 @@ tags:
     description: 店舗からのお知らせ (認証不要)
   - name: Pickup
     description: 受け取り枠 (pickup slot) の取得。認証不要
+  - name: Public
+    description: 公開情報 (店舗情報・アプリ設定)。認証不要
 
 components:
   securitySchemes:
@@ -408,14 +410,129 @@ components:
         pages:
           type: integer
 
+    # 統一エラーレスポンス形式。詳細は docs/error_codes.md 参照。
     Error:
       type: object
+      required: [success, error]
       properties:
         success:
           type: boolean
           example: false
         error:
+          $ref: '#/components/schemas/ErrorBody'
+    ErrorBody:
+      type: object
+      required: [code, message]
+      properties:
+        code:
           type: string
+          description: UPPER_SNAKE_CASE の機械判別用エラーコード
+          example: PICKUP_SLOT_FULL
+        message:
+          type: string
+          description: UI にそのまま表示できる日本語メッセージ
+          example: この時間帯は予約がいっぱいです
+        details:
+          type: object
+          description: UI 分岐に必要な情報 (code により構造が異なる)
+          additionalProperties: true
+
+    StoreProfile:
+      type: object
+      properties:
+        name: { type: string }
+        address: { type: string }
+        phone: { type: string }
+        openingHours:
+          type: object
+          description: 曜日ごとの営業時間。定休日は null。
+          properties:
+            mon: { $ref: '#/components/schemas/OpeningHour' }
+            tue: { $ref: '#/components/schemas/OpeningHour' }
+            wed: { $ref: '#/components/schemas/OpeningHour' }
+            thu: { $ref: '#/components/schemas/OpeningHour' }
+            fri: { $ref: '#/components/schemas/OpeningHour' }
+            sat: { $ref: '#/components/schemas/OpeningHour' }
+            sun: { $ref: '#/components/schemas/OpeningHour' }
+        closedWeekdays:
+          type: array
+          items: { type: integer, minimum: 0, maximum: 6 }
+        todayStatus:
+          type: string
+          enum: [OPEN, OUTSIDE_HOURS, CLOSED_DAY]
+    OpeningHour:
+      nullable: true
+      type: object
+      properties:
+        open: { type: string, example: "11:00" }
+        close: { type: string, example: "21:00" }
+
+    AppConfig:
+      type: object
+      properties:
+        maintenance:
+          type: object
+          properties:
+            enabled: { type: boolean }
+            message: { type: string, nullable: true }
+        ios:
+          type: object
+          properties:
+            minVersion: { type: string, example: "1.0.0" }
+            latestVersion: { type: string, example: "1.2.0" }
+        android:
+          type: object
+          properties:
+            minVersion: { type: string }
+            latestVersion: { type: string }
+
+    PreviewResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/PreviewItem' }
+        subtotal: { type: number }
+        tax: { type: number }
+        total: { type: number }
+        pickup:
+          type: object
+          properties:
+            requestedAt: { type: string, nullable: true }
+            available: { type: boolean }
+            unavailableReason:
+              type: string
+              nullable: true
+              enum: [PICKUP_INVALID_FORMAT, PICKUP_BOUNDARY, PICKUP_CLOSED_DAY, PICKUP_PAST_LOOKAHEAD, PICKUP_OUT_OF_HOURS, PICKUP_LEAD_TIME, PICKUP_SLOT_FULL]
+            message: { type: string, nullable: true }
+        canPlaceOrder: { type: boolean }
+        warnings:
+          type: array
+          items: { $ref: '#/components/schemas/PreviewWarning' }
+
+    PreviewItem:
+      type: object
+      properties:
+        cartItemId: { type: string }
+        burgerId: { type: string }
+        burgerName: { type: string }
+        burgerImageUrl: { type: string, nullable: true }
+        quantity: { type: integer }
+        unitPrice: { type: number }
+        subtotal: { type: number }
+        options:
+          type: array
+          items: { $ref: '#/components/schemas/CartItemOption' }
+        warnings:
+          type: array
+          items: { $ref: '#/components/schemas/PreviewWarning' }
+    PreviewWarning:
+      type: object
+      properties:
+        code: { type: string, enum: [BURGER_UNAVAILABLE, OPTION_OUT_OF_STOCK] }
+        details:
+          type: object
+          additionalProperties: true
 
 paths:
   # ── Auth ─────────────────────────────────────────────────────────────
@@ -684,28 +801,17 @@ paths:
                     $ref: '#/components/schemas/CartItem'
         '400':
           description: |
-            オプションの検証エラー。`code` で原因判別:
-              - option_not_found: 存在しない option id
-              - option_invalid_burger: このバーガーに適用されないグループのオプション
-              - option_group_required: 必須グループ未選択
-              - option_group_min_violation: 最小選択数未満
-              - option_group_max_violation: 最大選択数超過
-              - option_out_of_stock: 売り切れオプション
+            オプションの検証エラー。`error.code` で原因判別:
+              - `OPTION_NOT_FOUND` — 存在しない option id (details.optionId)
+              - `OPTION_INVALID_BURGER` — このバーガーに適用されないグループのオプション (details.{optionId, optionName, groupId})
+              - `OPTION_GROUP_REQUIRED` — 必須グループ未選択 (details.{groupId, groupName})
+              - `OPTION_GROUP_MIN_VIOLATION` — 最小選択数未満
+              - `OPTION_GROUP_MAX_VIOLATION` — 最大選択数超過
+              - `OPTION_OUT_OF_STOCK` — 売り切れオプション (details.{optionId, optionName})
+              - `BURGER_UNAVAILABLE` — 対象バーガーが販売停止 (details.burgerId)
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean, example: false }
-                  error:   { type: string }
-                  code:    { type: string }
-                  details:
-                    type: object
-                    properties:
-                      groupId:    { type: string }
-                      groupName:  { type: string }
-                      optionId:   { type: string }
-                      optionName: { type: string }
+              schema: { $ref: '#/components/schemas/Error' }
     delete:
       tags: [Cart]
       summary: カート全削除
@@ -803,45 +909,29 @@ paths:
                   data:
                     $ref: '#/components/schemas/Order'
         '400':
-          description: カートが空、または pickupAt 検証エラー (code フィールドで詳細判別)
+          description: |
+            `error.code` で詳細判別:
+              - `CART_EMPTY` — カートが空
+              - `PICKUP_INVALID_FORMAT` / `PICKUP_BOUNDARY` (details.slotIntervalMin) / `PICKUP_CLOSED_DAY` /
+                `PICKUP_PAST_LOOKAHEAD` / `PICKUP_OUT_OF_HOURS` (details.{openTime,closeTime}) /
+                `PICKUP_LEAD_TIME` (details.leadTimeMin) — pickupAt 検証失敗
+              - `OPTION_OUT_OF_STOCK_AT_ORDER` (details.{itemId, optionId, optionName}) — 確定時にオプションが売り切れに
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  error:
-                    type: string
-                  code:
-                    type: string
-                    description: |
-                      pickupAt 検証失敗時: pickup_invalid_format / pickup_boundary /
-                      pickup_closed_day / pickup_past_lookahead / pickup_out_of_hours / pickup_lead_time。
-                      オプション売り切れ: option_out_of_stock_at_order (itemId / optionId / optionName も返す)
-                  itemId:
-                    type: string
-                    description: option_out_of_stock_at_order 時のみ。該当 cart_item_id
-                  optionId:
-                    type: string
-                    description: option_out_of_stock_at_order 時のみ
-                  optionName:
-                    type: string
-                    description: option_out_of_stock_at_order 時のみ
+              schema: { $ref: '#/components/schemas/Error' }
         '409':
-          description: 指定した受け取り枠が満杯 (code=pickup_slot_full)
+          description: |
+            - `PICKUP_SLOT_FULL` (details.slotAt: ISO8601 JST) — 指定した受け取り枠が満杯
+            - `ORDER_IDEMPOTENCY_IN_PROGRESS` (details.idempotencyKey) — 同じ `Idempotency-Key` で処理実行中
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  error:
-                    type: string
-                  code:
-                    type: string
-                    enum: [pickup_slot_full]
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: |
+            - `ORDER_IDEMPOTENCY_CONFLICT` (details.idempotencyKey) — 同じキーで異なる body
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
     get:
       tags: [Orders]
       summary: 注文履歴取得
@@ -1154,3 +1244,76 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /store:
+    get:
+      tags: [Public]
+      summary: 店舗情報取得 (認証不要)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/StoreProfile' }
+        '500':
+          description: STORE_PROFILE_MISSING or APP_CONFIG_NOT_FOUND
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /app-config:
+    get:
+      tags: [Public]
+      summary: アプリ設定取得 (認証不要)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/AppConfig' }
+        '500':
+          description: APP_CONFIG_NOT_FOUND
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /orders/preview:
+    post:
+      tags: [Orders]
+      summary: 注文プレビュー (注文は作成しない)
+      description: |
+        カート明細 + 小計/税/合計、受け取り枠の可否、売り切れ・販売停止の警告を返す。
+        warnings が空かつ pickup.available=true なら canPlaceOrder=true。
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pickupAt: { type: string, format: date-time, nullable: true }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/PreviewResponse' }
+        '400':
+          description: CART_EMPTY など。カートが空のみエラーで返る
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }

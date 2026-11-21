@@ -23,12 +23,21 @@ export interface OptionGroupDef {
 }
 
 export type ValidationCode =
-  | 'option_not_found'
-  | 'option_invalid_burger'
-  | 'option_group_required'
-  | 'option_group_min_violation'
-  | 'option_group_max_violation'
-  | 'option_out_of_stock';
+  | 'OPTION_NOT_FOUND'
+  | 'OPTION_INVALID_BURGER'
+  | 'OPTION_GROUP_REQUIRED'
+  | 'OPTION_GROUP_MIN_VIOLATION'
+  | 'OPTION_GROUP_MAX_VIOLATION'
+  | 'OPTION_OUT_OF_STOCK';
+
+export const VALIDATION_MESSAGES: Record<ValidationCode, string> = {
+  OPTION_NOT_FOUND: '指定のオプションが見つかりません',
+  OPTION_INVALID_BURGER: 'このバーガーでは選択できないオプションです',
+  OPTION_GROUP_REQUIRED: '必須の選択項目があります',
+  OPTION_GROUP_MIN_VIOLATION: '選択数が不足しています',
+  OPTION_GROUP_MAX_VIOLATION: '選択数が上限を超えています',
+  OPTION_OUT_OF_STOCK: '選択したオプションは売り切れです',
+};
 
 export interface ValidationError {
   ok: false;
@@ -80,7 +89,7 @@ export function validateOptionSelection(params: {
   // (1) 全ての option_id が存在する
   for (const id of uniqueIds) {
     if (!allOptions.has(id)) {
-      return { ok: false, code: 'option_not_found', details: { optionId: String(id) } };
+      return { ok: false, code: 'OPTION_NOT_FOUND', details: { optionId: String(id) } };
     }
   }
 
@@ -90,7 +99,7 @@ export function validateOptionSelection(params: {
     if (!allowedGroupIds.has(opt.groupId)) {
       return {
         ok: false,
-        code: 'option_invalid_burger',
+        code: 'OPTION_INVALID_BURGER',
         details: { optionId: String(id), optionName: opt.name, groupId: String(opt.groupId) },
       };
     }
@@ -108,7 +117,7 @@ export function validateOptionSelection(params: {
     const g = allGroups.get(groupId);
     if (!g || !g.isRequired) continue;
     if ((countByGroup.get(groupId) ?? 0) === 0) {
-      return { ok: false, code: 'option_group_required', details: { groupId: String(groupId), groupName: g.name } };
+      return { ok: false, code: 'OPTION_GROUP_REQUIRED', details: { groupId: String(groupId), groupName: g.name } };
     }
   }
 
@@ -118,14 +127,14 @@ export function validateOptionSelection(params: {
     if (count < g.minSelect) {
       return {
         ok: false,
-        code: 'option_group_min_violation',
+        code: 'OPTION_GROUP_MIN_VIOLATION',
         details: { groupId: String(groupId), groupName: g.name },
       };
     }
     if (count > g.maxSelect) {
       return {
         ok: false,
-        code: 'option_group_max_violation',
+        code: 'OPTION_GROUP_MAX_VIOLATION',
         details: { groupId: String(groupId), groupName: g.name },
       };
     }
@@ -137,7 +146,7 @@ export function validateOptionSelection(params: {
     if (!opt.isAvailable) {
       return {
         ok: false,
-        code: 'option_out_of_stock',
+        code: 'OPTION_OUT_OF_STOCK',
         details: { optionId: String(id), optionName: opt.name },
       };
     }

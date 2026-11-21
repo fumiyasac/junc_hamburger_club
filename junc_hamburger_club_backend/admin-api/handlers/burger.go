@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	apierr "github.com/junc/admin-api/errors"
 	"github.com/junc/admin-api/models"
 )
 
@@ -42,7 +43,7 @@ func (h *BurgerHandler) ListBurgers(c *gin.Context) {
 		ORDER BY b.id
 		LIMIT ? OFFSET ?`, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	defer rows.Close()
@@ -80,11 +81,11 @@ func (h *BurgerHandler) GetBurger(c *gin.Context) {
 		Scan(&b.ID, &b.CategoryID, &b.Name, &b.Description, &b.Price,
 			&b.ImageURL, &b.Rating, &b.ReviewCount, &b.IsPopular, &b.IsAvailable, &b.Calories)
 	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "burger not found"})
+		apierr.BurgerNotFound(c, id)
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 
@@ -96,7 +97,7 @@ func (h *BurgerHandler) GetBurger(c *gin.Context) {
 func (h *BurgerHandler) CreateBurger(c *gin.Context) {
 	var req CreateBurgerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		apierr.Validation(c, err.Error(), nil)
 		return
 	}
 
@@ -105,7 +106,7 @@ func (h *BurgerHandler) CreateBurger(c *gin.Context) {
 		VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		req.CategoryID, req.Name, req.Description, req.Price, req.ImageURL, req.IsPopular, req.Calories)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 
@@ -127,7 +128,7 @@ func (h *BurgerHandler) UpdateBurger(c *gin.Context) {
 	id := c.Param("id")
 	var req CreateBurgerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		apierr.Validation(c, err.Error(), nil)
 		return
 	}
 
@@ -137,7 +138,7 @@ func (h *BurgerHandler) UpdateBurger(c *gin.Context) {
 		req.CategoryID, req.Name, req.Description, req.Price, req.ImageURL,
 		req.IsPopular, req.Calories, id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 
@@ -159,7 +160,7 @@ func (h *BurgerHandler) ToggleAvailability(c *gin.Context) {
 	_, err := h.DB.Exec(
 		"UPDATE burgers SET is_available = NOT is_available, updated_at = CURRENT_TIMESTAMP WHERE id = ?", id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "availability toggled"})
@@ -171,15 +172,15 @@ func (h *BurgerHandler) DeleteBurger(c *gin.Context) {
 	if err != nil {
 		// MySQL FK 制約違反 (エラーコード 1451: a child row exists)
 		if strings.Contains(err.Error(), "1451") {
-			c.JSON(http.StatusConflict, gin.H{"success": false, "error": "burger is referenced by existing orders"})
+			apierr.BurgerReferencedByOrders(c)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	affected, _ := result.RowsAffected()
 	if affected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "burger not found"})
+		apierr.BurgerNotFound(c, id)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "burger deleted"})

@@ -2,8 +2,10 @@ import { Response } from 'express';
 import { pool } from '../config/database';
 import { AuthRequest, OrderRow, OrderItemRow, PickupSettingsRow } from '../types';
 import { RowDataPacket } from 'mysql2';
-import { settingsFromRow, validatePickupAt } from '../lib/pickup_rules';
+import { settingsFromRow, validatePickupAt, PICKUP_VALIDATION_MESSAGES } from '../lib/pickup_rules';
 import { formatJstIso } from './pickup.controller';
+import { AppError, Errors } from '../lib/errors';
+import { markIdempotencySucceeded } from '../middleware/idempotency.middleware';
 
 function generateOrderNumber(): string {
   const date = new Date();
@@ -86,14 +88,20 @@ export async function createOrder(req: AuthRequest, res: Response): Promise<void
       'SELECT * FROM pickup_settings WHERE store_id = 1',
     );
     if (settingsRows.length === 0) {
-      res.status(500).json({ success: false, error: 'Pickup settings not configured' });
-      return;
+      throw new AppError('APP_CONFIG_NOT_FOUND', '受け取り枠設定が初期化されていません', 500);
     }
     const settings = settingsFromRow(settingsRows[0] as PickupSettingsRow);
     const validation = validatePickupAt(pickupAt, settings, new Date());
     if (!validation.ok) {
-      res.status(400).json({ success: false, error: 'Invalid pickupAt', code: validation.code });
-      return;
+      const details: Record<string, unknown> = {};
+      if (validation.code === 'PICKUP_BOUNDARY') details.slotIntervalMin = settings.slotIntervalMin;
+      if (validation.code === 'PICKUP_OUT_OF_HOURS') {
+        details.openTime = settings.openTime;
+        details.closeTime = settings.closeTime;
+      }
+      if (validation.code === 'PICKUP_LEAD_TIME') details.leadTimeMin = settings.leadTimeMin;
+      throw new AppError(validation.code, PICKUP_VALIDATION_MESSAGES[validation.code], 400,
+        Object.keys(details).length ? details : undefined);
     }
     normalizedPickupAt = validation.pickupAt;
   }
@@ -124,8 +132,8 @@ export async function createOrder(req: AuthRequest, res: Response): Promise<void
 
       if (reserved >= capacity) {
         await conn.rollback();
-        res.status(409).json({ success: false, error: 'Pickup slot is full', code: 'pickup_slot_full' });
-        return;
+        throw new AppError('PICKUP_SLOT_FULL', 'この時間帯は予約がいっぱいです', 409,
+          { slotAt: formatJstIso(normalizedPickupAt) });
       }
 
       await conn.query(
@@ -146,8 +154,7 @@ export async function createOrder(req: AuthRequest, res: Response): Promise<void
 
     if (cartRows.length === 0) {
       await conn.rollback();
-      res.status(400).json({ success: false, error: 'Cart is empty' });
-      return;
+      throw Errors.cartEmpty();
     }
 
     const cartIds = cartRows.map((r) => r['id'] as number);
@@ -188,15 +195,11 @@ export async function createOrder(req: AuthRequest, res: Response): Promise<void
       const sold = opts.find((o) => !o.isAvailable);
       if (sold) {
         await conn.rollback();
-        res.status(400).json({
-          success: false,
-          error: 'Some options in the cart are no longer available',
-          code: 'option_out_of_stock_at_order',
+        throw new AppError('OPTION_OUT_OF_STOCK_AT_ORDER', 'カート内オプションが売り切れになりました', 400, {
           itemId: String(item['id']),
           optionId: String(sold.id),
           optionName: sold.name,
         });
-        return;
       }
     }
 
@@ -210,7 +213,8 @@ export async function createOrder(req: AuthRequest, res: Response): Promise<void
     });
 
     const subtotal = itemCalc.reduce((s, c) => s + c.subtotal, 0);
-    const taxAmount = subtotal * 0.1;
+    // 税は整数円に丸め、プレビュー (order_pricing.ts) と一致させる
+    const taxAmount = Math.round(subtotal * 0.1);
     const totalAmount = subtotal + taxAmount;
     const orderNumber = generateOrderNumber();
     const estimatedReadyAt = new Date(Date.now() + 20 * 60 * 1000);
@@ -253,10 +257,17 @@ export async function createOrder(req: AuthRequest, res: Response): Promise<void
     );
     const optionsByItemId = await loadOrderItemOptions([orderId]);
 
-    res.status(201).json({
+    const payload = {
       success: true,
       data: formatOrder(orderRows[0] as OrderRow, itemRows as OrderItemRow[], optionsByItemId),
-    });
+    };
+
+    // Idempotency-Key 使用時はレスポンスを保存 (同キー再送で再生される)
+    if (req.idempotency) {
+      await markIdempotencySucceeded(userId, req.idempotency, orderId, 201, payload);
+    }
+
+    res.status(201).json(payload);
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -298,8 +309,7 @@ export async function getOrderById(req: AuthRequest, res: Response): Promise<voi
   );
 
   if (orderRows.length === 0) {
-    res.status(404).json({ success: false, error: 'Order not found' });
-    return;
+    throw Errors.orderNotFound(orderId);
   }
 
   const [itemRows] = await pool.query<RowDataPacket[]>(
@@ -327,15 +337,13 @@ export async function cancelOrder(req: AuthRequest, res: Response): Promise<void
 
     if (rows.length === 0) {
       await conn.rollback();
-      res.status(404).json({ success: false, error: 'Order not found' });
-      return;
+      throw Errors.orderNotFound(orderId);
     }
 
     const { status, pickup_at } = rows[0] as { status: string; pickup_at: Date | null };
     if (!['received'].includes(status)) {
       await conn.rollback();
-      res.status(400).json({ success: false, error: 'Cannot cancel order in current status' });
-      return;
+      throw Errors.orderCancelNotAllowed(status);
     }
 
     await conn.query(
@@ -359,4 +367,14 @@ export async function cancelOrder(req: AuthRequest, res: Response): Promise<void
   } finally {
     conn.release();
   }
+}
+
+// ─── プレビュー: 注文を作らずに明細と可否を返す ───────────────────────
+// 実装は order_pricing.ts に委譲
+export async function previewOrder(req: AuthRequest, res: Response): Promise<void> {
+  const { computePreview } = await import('../lib/order_pricing');
+  const userId = req.user!.userId;
+  const { pickupAt } = req.body as { pickupAt?: string };
+  const data = await computePreview(userId, pickupAt);
+  res.json({ success: true, data });
 }

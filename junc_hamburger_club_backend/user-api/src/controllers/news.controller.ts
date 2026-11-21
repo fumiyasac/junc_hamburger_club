@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { pool } from '../config/database';
 import { RowDataPacket } from 'mysql2';
 import { NewsCategory, NewsRow } from '../types';
+import { Errors } from '../lib/errors';
 
 // カテゴリーのコード値 (ENUM の代わりに controller / spec / client で共有する唯一の source)
 export const NEWS_CATEGORIES: readonly NewsCategory[] = ['store', 'menu', 'campaign', 'app'] as const;
@@ -96,8 +97,7 @@ export async function getNewsById(req: Request, res: Response): Promise<void> {
   );
 
   if (rows.length === 0) {
-    res.status(404).json({ success: false, error: 'News not found' });
-    return;
+    throw Errors.resourceNotFound('news', req.params.id);
   }
 
   res.json({ success: true, data: formatNewsDetail(rows[0] as NewsRow) });

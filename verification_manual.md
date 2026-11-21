@@ -986,3 +986,97 @@ Web 管理画面 (http://localhost:3002/admin):
 - `/admin/options` でグループ/オプションの作成・編集・売切トグル
 - `/admin/burgers` → 「オプション」ボタン → `/admin/burgers/:id/options` で紐付け
 - `/admin/orders` の各注文項目下にオプション内訳が表示される
+
+---
+
+## 9. バックエンド API 整備 (feature/impprove_backend_api) の検証
+
+> 詳細仕様は [`docs/error_codes.md`](docs/error_codes.md)
+
+### 9-1. 統一エラーレスポンス形式
+
+すべてのエラーは `{success:false, error:{code:"UPPER_SNAKE_CASE", message:"日本語", details:{...}}}` で返る。
+
+```bash
+# 認証なし
+curl -s http://localhost:3100/api/v1/orders | jq
+# → AUTH_TOKEN_MISSING
+
+# 存在しないバーガー
+curl -s http://localhost:3100/api/v1/burgers/9999 | jq
+# → BURGER_NOT_FOUND, details.burgerId
+
+# バリデーション
+curl -s -X POST http://localhost:3100/api/v1/auth/register -H "Content-Type: application/json" -d '{}' | jq
+# → VALIDATION_FAILED, details.issues[]
+```
+
+### 9-2. 注文作成の冪等性 (Idempotency-Key)
+
+```bash
+KEY=$(uuidgen)
+# 同じキーで 2 回送信 → 同じ注文番号
+curl -X POST .../orders -H "Idempotency-Key: $KEY" ... # 1 回目: 新規作成
+curl -X POST .../orders -H "Idempotency-Key: $KEY" ... # 2 回目: 保存レスポンス再生
+# 同じキーで異なる body → ORDER_IDEMPOTENCY_CONFLICT (422)
+# 並列 5 本で同じキー送信 → 1 本だけ成功、残りは ORDER_IDEMPOTENCY_IN_PROGRESS (409)
+```
+
+### 9-3. 注文プレビュー
+
+```bash
+curl -s -X POST http://localhost:3100/api/v1/orders/preview \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "{\"pickupAt\":\"$SLOT\"}" | jq
+# 返却: items[], subtotal, tax, total, pickup, canPlaceOrder, warnings[]
+# 売り切れオプションを含む行は warnings に BURGER_UNAVAILABLE / OPTION_OUT_OF_STOCK で列挙
+# カート空のみ CART_EMPTY エラー、他は 200 で返す
+```
+
+### 9-4. 店舗情報・アプリ設定
+
+```bash
+curl -s http://localhost:3100/api/v1/store | jq
+# → openingHours (曜日別), closedWeekdays, todayStatus=OPEN|OUTSIDE_HOURS|CLOSED_DAY
+#    営業時間の正本は pickup_settings。店舗名・住所・電話は環境変数 STORE_NAME/STORE_ADDRESS/STORE_PHONE
+
+curl -s http://localhost:3100/api/v1/app-config | jq
+# → maintenance.enabled/message, ios.{minVersion,latestVersion}, android.{...}
+
+curl -s -X PUT http://localhost:8081/api/v1/admin/app-config \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"iosLatestVersion":"1.2.0","maintenanceMode":false}' | jq
+# 部分更新 (送ったキーだけ更新)
+```
+
+### 9-5. 注文ステータス遷移制御
+
+遷移表 (user-api `src/lib/order_status.ts` + admin-api `models/order_status.go` で同期):
+
+```
+received  → preparing, cancelled
+preparing → ready, cancelled
+ready     → completed             (キャンセル不可 — 調理完了廃棄回避)
+completed, cancelled → 終端
+```
+
+```bash
+# 不正遷移 → ORDER_INVALID_STATUS_TRANSITION with details.{current,requested,allowed}
+curl -X PUT /admin/orders/:id/status -d '{"status":"ready"}' # from received → 409
+```
+
+管理画面 `/admin/orders` は `allowedNext(status)` から導く許可遷移先ボタンだけを描画。
+
+### 9-6. 既存環境への追加マイグレーション
+
+```bash
+cd junc_hamburger_club_backend
+docker compose exec -T mysql sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' < init-db/06_idempotency.sql
+docker compose exec -T mysql sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' < init-db/07_app_config.sql
+```
+
+### 9-7. テスト
+
+- user-api: `npx jest` → **53 テスト pass** (options 17 / pickup_rules 27 / order_status 9)
+- admin-api: `go test ./models/...` → **OrderStatus 遷移表 3 テスト pass**
+- webfront: `npx tsc --noEmit` + `next build` クリーン

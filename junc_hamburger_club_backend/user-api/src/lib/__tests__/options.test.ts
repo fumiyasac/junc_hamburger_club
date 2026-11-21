@@ -70,7 +70,7 @@ describe('validateOptionSelection - 境界値', () => {
     });
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      expect(r.code).toBe('option_group_required');
+      expect(r.code).toBe('OPTION_GROUP_REQUIRED');
       expect(r.details.groupName).toBe('パティ');
     }
   });
@@ -104,7 +104,7 @@ describe('validateOptionSelection - 境界値', () => {
       allGroups: groups,
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe('option_group_max_violation');
+    if (!r.ok) expect(r.code).toBe('OPTION_GROUP_MAX_VIOLATION');
   });
 
   test('トッピング最大 3 の境界: 3 個 OK / 4 個 NG', () => {
@@ -130,7 +130,7 @@ describe('validateOptionSelection - 境界値', () => {
       allGroups: groups,
     });
     expect(r4.ok).toBe(false);
-    if (!r4.ok) expect(r4.code).toBe('option_group_max_violation');
+    if (!r4.ok) expect(r4.code).toBe('OPTION_GROUP_MAX_VIOLATION');
   });
 
   test('対象バーガーに紐付かないグループ → option_invalid_burger', () => {
@@ -141,7 +141,7 @@ describe('validateOptionSelection - 境界値', () => {
       allGroups: groups,
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe('option_invalid_burger');
+    if (!r.ok) expect(r.code).toBe('OPTION_INVALID_BURGER');
   });
 
   test('存在しない option_id → option_not_found', () => {
@@ -152,7 +152,7 @@ describe('validateOptionSelection - 境界値', () => {
       allGroups: groups,
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe('option_not_found');
+    if (!r.ok) expect(r.code).toBe('OPTION_NOT_FOUND');
   });
 
   test('売り切れオプション → option_out_of_stock', () => {
@@ -163,7 +163,7 @@ describe('validateOptionSelection - 境界値', () => {
       allGroups: groups,
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe('option_out_of_stock');
+    if (!r.ok) expect(r.code).toBe('OPTION_OUT_OF_STOCK');
   });
 
   test('バンズ変更 max=1 の境界: 2 個送る → max_violation', () => {
@@ -174,7 +174,7 @@ describe('validateOptionSelection - 境界値', () => {
       allGroups: groups,
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe('option_group_max_violation');
+    if (!r.ok) expect(r.code).toBe('OPTION_GROUP_MAX_VIOLATION');
   });
 
   test('正常: パティ + トッピング 2 + バンズ', () => {

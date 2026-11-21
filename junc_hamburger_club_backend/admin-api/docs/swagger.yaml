@@ -368,14 +368,41 @@ components:
         pages:
           type: integer
 
+    # 統一エラーレスポンス形式。詳細は docs/error_codes.md 参照。
     Error:
       type: object
+      required: [success, error]
       properties:
-        success:
-          type: boolean
-          example: false
-        error:
-          type: string
+        success: { type: boolean, example: false }
+        error:   { $ref: '#/components/schemas/ErrorBody' }
+    ErrorBody:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, description: "UPPER_SNAKE_CASE エラーコード" }
+        message: { type: string }
+        details:
+          type: object
+          additionalProperties: true
+
+    AppConfig:
+      type: object
+      properties:
+        maintenance:
+          type: object
+          properties:
+            enabled: { type: boolean }
+            message: { type: string, nullable: true }
+        ios:
+          type: object
+          properties:
+            minVersion: { type: string }
+            latestVersion: { type: string }
+        android:
+          type: object
+          properties:
+            minVersion: { type: string }
+            latestVersion: { type: string }
 
 paths:
   # ── Auth ─────────────────────────────────────────────────────────────
@@ -1129,3 +1156,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /app-config:
+    get:
+      tags: [AppConfig]
+      summary: アプリ設定の取得
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/AppConfig' }
+    put:
+      tags: [AppConfig]
+      summary: アプリ設定の部分更新
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                maintenanceMode:      { type: boolean }
+                maintenanceMessage:   { type: string, nullable: true }
+                iosMinVersion:        { type: string }
+                iosLatestVersion:     { type: string }
+                androidMinVersion:    { type: string }
+                androidLatestVersion: { type: string }
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: VALIDATION_FAILED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }

@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { pool } from '../config/database';
 import { AuthRequest, UserRow } from '../types';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { AppError, Errors } from '../lib/errors';
 
 export async function getProfile(req: AuthRequest, res: Response): Promise<void> {
   const userId = req.user!.userId;
@@ -12,8 +13,7 @@ export async function getProfile(req: AuthRequest, res: Response): Promise<void>
   );
 
   if (rows.length === 0) {
-    res.status(404).json({ success: false, error: 'User not found' });
-    return;
+    throw Errors.resourceNotFound('user', userId);
   }
 
   const user = rows[0] as UserRow;
@@ -40,8 +40,7 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
   if (profileImageUrl !== undefined) { fields.push('profile_image_url = ?'); params.push(profileImageUrl); }
 
   if (fields.length === 0) {
-    res.status(400).json({ success: false, error: 'No fields to update' });
-    return;
+    throw new AppError('VALIDATION_FAILED', '更新対象のフィールドがありません', 400, { issues: [] });
   }
 
   params.push(userId);
@@ -79,8 +78,7 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
 
   const user = rows[0] as { password_hash: string } | undefined;
   if (!user || !(await bcrypt.compare(currentPassword, user.password_hash))) {
-    res.status(401).json({ success: false, error: 'Current password is incorrect' });
-    return;
+    throw new AppError('USER_PASSWORD_CURRENT_INVALID', '現在のパスワードが違います', 400);
   }
 
   const newHash = await bcrypt.hash(newPassword, 12);
@@ -100,8 +98,7 @@ export async function deleteAccount(req: AuthRequest, res: Response): Promise<vo
   );
 
   if (result.affectedRows === 0) {
-    res.status(404).json({ success: false, error: 'User not found' });
-    return;
+    throw Errors.resourceNotFound('user', userId);
   }
 
   res.json({ success: true, message: 'Account deactivated' });

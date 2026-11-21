@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { pool } from '../config/database';
 import { RowDataPacket } from 'mysql2';
 import { BurgerRow } from '../types';
+import { Errors } from '../lib/errors';
 
 const BURGER_SELECT = `
   SELECT
@@ -84,8 +85,7 @@ export async function getBurgerById(req: Request, res: Response): Promise<void> 
   );
 
   if (rows.length === 0) {
-    res.status(404).json({ success: false, error: 'Burger not found' });
-    return;
+    throw Errors.burgerNotFound(id);
   }
 
   // 詳細のみ optionGroups を含める (一覧は含めない)

@@ -131,13 +131,13 @@ describe('validatePickupAt - 境界値', () => {
   test('不正な ISO 文字列', () => {
     const r = validatePickupAt('not-iso', defaultSettings, now);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe('pickup_invalid_format');
+    if (!r.ok) expect(r.code).toBe('PICKUP_INVALID_FORMAT');
   });
 
   test('分が 15 刻みでない (11:07)', () => {
     const r = validatePickupAt('2026-11-16T11:07:00+09:00', defaultSettings, now);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe('pickup_boundary');
+    if (!r.ok) expect(r.code).toBe('PICKUP_BOUNDARY');
   });
 
   test('定休日', () => {
@@ -147,25 +147,25 @@ describe('validatePickupAt - 境界値', () => {
       now,
     );
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe('pickup_closed_day');
+    if (!r.ok) expect(r.code).toBe('PICKUP_CLOSED_DAY');
   });
 
   test('lookahead 超過', () => {
     const r = validatePickupAt('2026-11-19T12:00:00+09:00', defaultSettings, now);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe('pickup_past_lookahead');
+    if (!r.ok) expect(r.code).toBe('PICKUP_PAST_LOOKAHEAD');
   });
 
   test('営業時間外 (10:00)', () => {
     const r = validatePickupAt('2026-11-16T10:00:00+09:00', defaultSettings, now);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe('pickup_out_of_hours');
+    if (!r.ok) expect(r.code).toBe('PICKUP_OUT_OF_HOURS');
   });
 
   test('close_time ちょうど (21:00) は out_of_hours', () => {
     const r = validatePickupAt('2026-11-16T21:00:00+09:00', defaultSettings, now);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe('pickup_out_of_hours');
+    if (!r.ok) expect(r.code).toBe('PICKUP_OUT_OF_HOURS');
   });
 
   test('close_time - interval (20:45) は OK', () => {
@@ -181,7 +181,7 @@ describe('validatePickupAt - 境界値', () => {
   test('lead_time 内 (now=10:50、11:00 枠は NG)', () => {
     const r = validatePickupAt('2026-11-16T11:00:00+09:00', defaultSettings, jstReal('2026-11-16', '10:50'));
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe('pickup_lead_time');
+    if (!r.ok) expect(r.code).toBe('PICKUP_LEAD_TIME');
   });
 
   test('正常系で normalized Date を返す', () => {

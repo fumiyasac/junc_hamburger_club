@@ -3,6 +3,7 @@ import { body } from 'express-validator';
 import { authenticate } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { getProfile, updateProfile, changePassword, deleteAccount } from '../controllers/user.controller';
+import { wrapAsync } from '../lib/errors';
 
 const router = Router();
 
@@ -18,9 +19,9 @@ const changePasswordValidation = [
   body('newPassword').isLength({ min: 8 }).withMessage('New password must be at least 8 characters'),
 ];
 
-router.get('/me', getProfile);
-router.put('/me', updateProfileValidation, validate, updateProfile);
-router.put('/me/password', changePasswordValidation, validate, changePassword);
-router.delete('/me', deleteAccount);
+router.get('/me', wrapAsync(getProfile));
+router.put('/me', updateProfileValidation, validate, wrapAsync(updateProfile));
+router.put('/me/password', changePasswordValidation, validate, wrapAsync(changePassword));
+router.delete('/me', wrapAsync(deleteAccount));
 
 export default router;

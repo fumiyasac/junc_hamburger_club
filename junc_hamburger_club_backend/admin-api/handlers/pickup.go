@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	apierr "github.com/junc/admin-api/errors"
 	"github.com/junc/admin-api/models"
 	"github.com/junc/admin-api/pickup"
 )
@@ -25,11 +26,11 @@ func (h *PickupHandler) GetSettings(c *gin.Context) {
 		Scan(&s.ID, &s.StoreID, &s.SlotIntervalMin, &s.SlotCapacity, &s.LeadTimeMin,
 			&s.LookaheadDays, &s.OpenTime, &s.CloseTime, &s.ClosedWeekdays)
 	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "pickup settings not configured"})
+		apierr.RespondCode(c, "APP_CONFIG_NOT_FOUND", "受け取り枠設定が初期化されていません", http.StatusNotFound, nil)
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": s})
@@ -49,38 +50,38 @@ type updateSettingsRequest struct {
 func (h *PickupHandler) UpdateSettings(c *gin.Context) {
 	var req updateSettingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		apierr.Validation(c, err.Error(), nil)
 		return
 	}
 
 	// バリデーション
 	if req.SlotIntervalMin <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "slotIntervalMin must be > 0"})
+		apierr.Validation(c, "slotIntervalMin must be > 0", nil)
 		return
 	}
 	if req.SlotCapacity <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "slotCapacity must be > 0"})
+		apierr.Validation(c, "slotCapacity must be > 0", nil)
 		return
 	}
 	if req.LeadTimeMin < 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "leadTimeMin must be >= 0"})
+		apierr.Validation(c, "leadTimeMin must be >= 0", nil)
 		return
 	}
 	if req.LookaheadDays <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "lookaheadDays must be > 0"})
+		apierr.Validation(c, "lookaheadDays must be > 0", nil)
 		return
 	}
 	if !isValidTime(req.OpenTime) || !isValidTime(req.CloseTime) {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "openTime/closeTime must be HH:MM:SS"})
+		apierr.Validation(c, "openTime/closeTime must be HH:MM:SS", nil)
 		return
 	}
 	openMin, closeMin := parseTimeMin(req.OpenTime), parseTimeMin(req.CloseTime)
 	if openMin >= closeMin {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "openTime must be before closeTime"})
+		apierr.Validation(c, "openTime must be before closeTime", nil)
 		return
 	}
 	if !isValidClosedWeekdays(req.ClosedWeekdays) {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "closedWeekdays must be CSV of 0..6"})
+		apierr.Validation(c, "closedWeekdays must be CSV of 0..6", nil)
 		return
 	}
 
@@ -92,7 +93,7 @@ func (h *PickupHandler) UpdateSettings(c *gin.Context) {
 		req.SlotIntervalMin, req.SlotCapacity, req.LeadTimeMin, req.LookaheadDays,
 		req.OpenTime, req.CloseTime, req.ClosedWeekdays)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "pickup settings updated"})
@@ -102,7 +103,7 @@ func (h *PickupHandler) UpdateSettings(c *gin.Context) {
 func (h *PickupHandler) GetSlots(c *gin.Context) {
 	date := c.Query("date")
 	if date == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "date is required"})
+		apierr.Validation(c, "date is required", nil)
 		return
 	}
 
@@ -115,7 +116,7 @@ func (h *PickupHandler) GetSlots(c *gin.Context) {
 		Scan(&s.ID, &s.StoreID, &s.SlotIntervalMin, &s.SlotCapacity, &s.LeadTimeMin,
 			&s.LookaheadDays, &s.OpenTime, &s.CloseTime, &s.ClosedWeekdays)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 
@@ -135,7 +136,7 @@ func (h *PickupHandler) GetSlots(c *gin.Context) {
 		WHERE store_id = 1 AND slot_at >= ? AND slot_at < DATE_ADD(?, INTERVAL 1 DAY)`,
 		date+" 00:00:00", date+" 00:00:00")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		apierr.Internal(c, err.Error())
 		return
 	}
 	defer rows.Close()
