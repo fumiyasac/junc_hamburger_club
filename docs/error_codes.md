@@ -31,14 +31,16 @@
 
 ### 認証・認可
 
-| HTTP | code | message |
-|---|---|---|
-| 401 | `AUTH_TOKEN_MISSING` | 認証情報が見つかりません |
-| 401 | `AUTH_TOKEN_EXPIRED` | トークンの有効期限が切れています |
-| 401 | `AUTH_TOKEN_INVALID` | 認証トークンが不正です |
-| 401 | `AUTH_USER_INACTIVE` | アカウントが無効化されています |
-| 401 | `ADMIN_LOGIN_FAILED` | メールアドレスまたはパスワードが違います |
-| 403 | `AUTH_FORBIDDEN` | この操作を実行する権限がありません |
+| HTTP | code | details | Flutter 側の推奨対応 |
+|---|---|---|---|
+| 401 | `TOKEN_MISSING` | — | ログイン画面へ |
+| 401 | `TOKEN_EXPIRED` | — | `/auth/refresh` を 1 回試行 → 失敗ならログイン画面 |
+| 401 | `TOKEN_INVALID` | — | ログイン画面へ (リフレッシュしない) |
+| 401 | `TOKEN_REUSE_DETECTED` | — | **全セッション失効済み**。トークンを破棄してログイン画面へ |
+| 401 | `USER_DEACTIVATED` | — | ログイン画面へ、必要なら管理者に連絡の文言 |
+| 401 | `ADMIN_LOGIN_FAILED` | — | 管理画面ログインの資格情報不一致 |
+| 403 | `AUTH_FORBIDDEN` | — | 権限なし |
+| 429 | `RATE_LIMIT_EXCEEDED` | `{retryAfterSeconds}` | 指定秒数待って再試行 |
 
 ### ユーザー登録・ログイン
 

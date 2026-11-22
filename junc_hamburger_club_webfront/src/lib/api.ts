@@ -69,16 +69,35 @@ export const newsApi = {
     request<import('./types').NewsCategory[]>(`${USER_API}/news/categories`),
 }
 
+// 新スキーマ: accessToken / refreshToken / expires。webfront では refreshToken は保持しない (任意実装)
+export interface AuthData {
+  accessToken: string
+  refreshToken: string
+  accessTokenExpiresIn: number
+  refreshTokenExpiresIn: number
+  user: import('./types').User
+}
+
 export const authApi = {
   register: (name: string, email: string, password: string) =>
-    request<{ token: string; user: import('./types').User }>(`${USER_API}/auth/register`, {
+    request<AuthData>(`${USER_API}/auth/register`, {
       method: 'POST',
       body: JSON.stringify({ name, email, password }),
     }),
   login: (email: string, password: string) =>
-    request<{ token: string; user: import('./types').User }>(`${USER_API}/auth/login`, {
+    request<AuthData>(`${USER_API}/auth/login`, {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    }),
+  logout: (refreshToken: string) =>
+    request<unknown>(`${USER_API}/auth/logout`, {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    }),
+  refresh: (refreshToken: string) =>
+    request<AuthData>(`${USER_API}/auth/refresh`, {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
     }),
 }
 

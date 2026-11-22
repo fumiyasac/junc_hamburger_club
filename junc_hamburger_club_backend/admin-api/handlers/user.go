@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -73,6 +74,8 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 
 func (h *UserHandler) ToggleUserActive(c *gin.Context) {
 	id := c.Param("id")
+
+	// atomic に toggle + 新しい値を取得 (読み取り→書き込みの race を避ける)
 	result, err := h.DB.Exec(
 		"UPDATE users SET is_active = NOT is_active, updated_at = CURRENT_TIMESTAMP WHERE id = ?", id)
 	if err != nil {
@@ -84,5 +87,20 @@ func (h *UserHandler) ToggleUserActive(c *gin.Context) {
 		apierr.ResourceNotFound(c, "user", id)
 		return
 	}
+	var nextActive bool
+	if err := h.DB.QueryRow("SELECT is_active FROM users WHERE id = ?", id).Scan(&nextActive); err != nil {
+		apierr.Internal(c, err.Error())
+		return
+	}
+
+	// 無効化した場合は、該当ユーザーの全 refresh_sessions を失効させる
+	if !nextActive {
+		if _, err := h.DB.Exec(
+			`UPDATE refresh_sessions SET revoked_at = CURRENT_TIMESTAMP, revoked_reason = 'ADMIN_REVOKED'
+			 WHERE user_id = ? AND revoked_at IS NULL`, id); err != nil {
+			log.Printf("[admin] refresh revoke failed user=%s err=%v", id, err)
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "user status toggled"})
 }

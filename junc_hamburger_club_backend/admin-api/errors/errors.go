@@ -51,14 +51,17 @@ func RespondCode(c *gin.Context, code, message string, httpStatus int, details m
 
 // プリセット ─────────────────────────────────────────────
 
-func AuthTokenMissing(c *gin.Context) {
-	RespondCode(c, "AUTH_TOKEN_MISSING", "認証情報が見つかりません", http.StatusUnauthorized, nil)
+func TokenMissing(c *gin.Context) {
+	RespondCode(c, "TOKEN_MISSING", "認証情報が見つかりません", http.StatusUnauthorized, nil)
 }
-func AuthTokenInvalid(c *gin.Context) {
-	RespondCode(c, "AUTH_TOKEN_INVALID", "認証トークンが不正です", http.StatusUnauthorized, nil)
+func TokenInvalid(c *gin.Context) {
+	RespondCode(c, "TOKEN_INVALID", "認証トークンが不正です", http.StatusUnauthorized, nil)
 }
-func AuthTokenExpired(c *gin.Context) {
-	RespondCode(c, "AUTH_TOKEN_EXPIRED", "トークンの有効期限が切れています", http.StatusUnauthorized, nil)
+func TokenExpired(c *gin.Context) {
+	RespondCode(c, "TOKEN_EXPIRED", "トークンの有効期限が切れています", http.StatusUnauthorized, nil)
+}
+func UserDeactivated(c *gin.Context) {
+	RespondCode(c, "USER_DEACTIVATED", "アカウントが無効化されています", http.StatusUnauthorized, nil)
 }
 func AdminLoginFailed(c *gin.Context) {
 	RespondCode(c, "ADMIN_LOGIN_FAILED", "メールアドレスまたはパスワードが違います", http.StatusUnauthorized, nil)
