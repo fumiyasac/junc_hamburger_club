@@ -6,9 +6,9 @@ import { Request, Response, NextFunction, RequestHandler } from 'express';
 export type ErrorCode =
   // 共通
   | 'VALIDATION_FAILED' | 'RESOURCE_NOT_FOUND' | 'INTERNAL_ERROR'
-  // 認証
-  | 'AUTH_TOKEN_MISSING' | 'AUTH_TOKEN_EXPIRED' | 'AUTH_TOKEN_INVALID'
-  | 'AUTH_USER_INACTIVE' | 'AUTH_FORBIDDEN'
+  // 認証 (Flutter interceptor が機械判別する核): docs/error_codes.md § 認証 参照
+  | 'TOKEN_MISSING' | 'TOKEN_EXPIRED' | 'TOKEN_INVALID' | 'TOKEN_REUSE_DETECTED'
+  | 'USER_DEACTIVATED' | 'AUTH_FORBIDDEN' | 'RATE_LIMIT_EXCEEDED'
   // ユーザー
   | 'USER_EMAIL_IN_USE' | 'USER_LOGIN_FAILED' | 'USER_PASSWORD_CURRENT_INVALID'
   // カート
@@ -65,10 +65,11 @@ export function wrapAsync<T extends Request = Request>(
 // 事前定義 (使用頻度の高いもの)
 export const Errors = {
   // 認証
-  authTokenMissing: () => new AppError('AUTH_TOKEN_MISSING', '認証情報が見つかりません', 401),
-  authTokenExpired: () => new AppError('AUTH_TOKEN_EXPIRED', 'トークンの有効期限が切れています', 401),
-  authTokenInvalid: () => new AppError('AUTH_TOKEN_INVALID', '認証トークンが不正です', 401),
-  authUserInactive: () => new AppError('AUTH_USER_INACTIVE', 'アカウントが無効化されています', 401),
+  tokenMissing: () => new AppError('TOKEN_MISSING', '認証情報が見つかりません', 401),
+  tokenExpired: () => new AppError('TOKEN_EXPIRED', 'トークンの有効期限が切れています', 401),
+  tokenInvalid: () => new AppError('TOKEN_INVALID', '認証トークンが不正です', 401),
+  tokenReuseDetected: () => new AppError('TOKEN_REUSE_DETECTED', 'トークンの再利用を検知したため全セッションを失効しました', 401),
+  userDeactivated: () => new AppError('USER_DEACTIVATED', 'アカウントが無効化されています', 401),
 
   // 汎用
   resourceNotFound: (resourceType: string, resourceId: string | number) =>

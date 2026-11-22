@@ -3,11 +3,14 @@ package config
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 )
+
+const minJWTSecretLen = 32
 
 type Config struct {
 	DBHost     string
@@ -20,13 +23,23 @@ type Config struct {
 }
 
 func Load() *Config {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		log.Fatal("[config] JWT_SECRET is required")
+	}
+	if len(secret) < minJWTSecretLen {
+		log.Fatalf("[config] JWT_SECRET must be at least %d chars (got %d)", minJWTSecretLen, len(secret))
+	}
+	if secret == "secret" || secret == "change_me" {
+		log.Fatal("[config] JWT_SECRET must not be a placeholder value")
+	}
 	return &Config{
 		DBHost:     getEnv("DB_HOST", "localhost"),
 		DBPort:     getEnv("DB_PORT", "3306"),
 		DBName:     getEnv("DB_NAME", "junc_hamburger"),
 		DBUser:     getEnv("DB_USER", "junc_user"),
 		DBPassword: getEnv("DB_PASSWORD", "junc_password"),
-		JWTSecret:  getEnv("JWT_SECRET", "secret"),
+		JWTSecret:  secret,
 		GinMode:    getEnv("GIN_MODE", "debug"),
 	}
 }

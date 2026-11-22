@@ -1,3 +1,6 @@
+// 必ず最初に env を評価して、未設定の秘密鍵で起動しないようにする
+import './config/env';
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -17,8 +20,12 @@ import appConfigRoutes from './routes/app_config.routes';
 
 const app = express();
 
+// 本番は LB / CDN の段数に合わせて設定する。開発 (docker compose + direct) は 1 hop。
+// req.ip を rate limit や監査ログに使うため明示設定が必要。
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 1));
 app.use(cors());
-app.use(express.json());
+// 大きすぎる refreshToken 攻撃対策を含め body サイズを明示
+app.use(express.json({ limit: '100kb' }));
 
 // Swagger
 const swaggerDoc = YAML.load(path.join(__dirname, '../swagger/openapi.yaml'));

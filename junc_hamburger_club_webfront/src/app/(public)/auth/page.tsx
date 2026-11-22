@@ -25,7 +25,7 @@ export default function AuthPage() {
         ? await authApi.login(email, password)
         : await authApi.register(name, email, password)
 
-      setLoggedIn(result.user, result.token)
+      setLoggedIn(result.user, result.accessToken)
       router.push('/')
     } catch (err) {
       setError(err instanceof Error ? err.message : '認証に失敗しました')

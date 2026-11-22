@@ -19,7 +19,7 @@ func AdminAuth(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") {
-			apierr.AuthTokenMissing(c)
+			apierr.TokenMissing(c)
 			c.Abort()
 			return
 		}
@@ -33,9 +33,9 @@ func AdminAuth(secret string) gin.HandlerFunc {
 
 		if err != nil || !token.Valid {
 			if errors.Is(err, jwt.ErrTokenExpired) {
-				apierr.AuthTokenExpired(c)
+				apierr.TokenExpired(c)
 			} else {
-				apierr.AuthTokenInvalid(c)
+				apierr.TokenInvalid(c)
 			}
 			c.Abort()
 			return

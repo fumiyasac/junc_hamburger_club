@@ -62,17 +62,35 @@ components:
     AuthResponse:
       type: object
       properties:
-        success:
-          type: boolean
-          example: true
+        success: { type: boolean, example: true }
         data:
           type: object
+          required: [accessToken, refreshToken, accessTokenExpiresIn, refreshTokenExpiresIn, user]
           properties:
-            token:
+            accessToken:
               type: string
+              description: 短命 JWT (15 分)。全認証 API に Bearer ヘッダで送る
               example: "eyJhbGciOiJIUzI1NiIs..."
+            refreshToken:
+              type: string
+              description: 不透明ランダム文字列 (64 hex、30 日)。secure storage に保存し /auth/refresh に送る
+              example: "a1b2c3d4...64hex"
+            accessTokenExpiresIn:
+              type: integer
+              description: accessToken の残り有効秒数
+              example: 900
+            refreshTokenExpiresIn:
+              type: integer
+              description: refreshToken の残り有効秒数
+              example: 2592000
             user:
               $ref: '#/components/schemas/User'
+
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string }
 
     Category:
       type: object
@@ -610,11 +628,69 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: 認証失敗
+          description: 認証失敗 (`USER_LOGIN_FAILED`)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '429':
+          description: レートリミット超過 (`RATE_LIMIT_EXCEEDED`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: アクセストークンの再発行 (ローテーション)
+      description: |
+        既存の refreshToken を提示すると、新しい access+refresh のペアが返る。
+        同じ refresh を 2 回使うと `TOKEN_REUSE_DETECTED` で同じ族 (端末) の全セッションが失効する。
+        ネットワーク再送を救うため、ローテーション直後 90 秒間は前回の refresh も grace として受け付ける。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '200':
+          description: ローテーション成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '400':
+          description: refreshToken 未指定
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          description: |
+            - `TOKEN_INVALID` — 存在しない / 失効済み
+            - `TOKEN_EXPIRED` — 有効期限切れ
+            - `TOKEN_REUSE_DETECTED` — 旧トークンの再利用。同端末の全セッションが失効
+            - `USER_DEACTIVATED` — ユーザーが無効化されている
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429':
+          description: レートリミット超過
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: 当該端末のリフレッシュトークンを失効
+      description: Idempotent。既に失効済み / 存在しない refreshToken でも 200 を返す。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '200':
+          description: OK
 
   # ── Burgers ──────────────────────────────────────────────────────────
   /burgers:

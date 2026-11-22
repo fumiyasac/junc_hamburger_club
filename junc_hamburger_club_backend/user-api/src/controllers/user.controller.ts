@@ -4,6 +4,7 @@ import { pool } from '../config/database';
 import { AuthRequest, UserRow } from '../types';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { AppError, Errors } from '../lib/errors';
+import { revokeAllForUser } from '../lib/refresh_rotation';
 
 export async function getProfile(req: AuthRequest, res: Response): Promise<void> {
   const userId = req.user!.userId;
@@ -86,6 +87,8 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
     'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
     [newHash, userId]
   );
+  // パスワード変更時は全端末のセッションを失効させる (本人含む)
+  await revokeAllForUser(pool, userId, 'PASSWORD_CHANGED');
 
   res.json({ success: true, message: 'Password changed' });
 }
@@ -100,6 +103,9 @@ export async function deleteAccount(req: AuthRequest, res: Response): Promise<vo
   if (result.affectedRows === 0) {
     throw Errors.resourceNotFound('user', userId);
   }
+
+  // 退会時: 全セッション失効
+  await revokeAllForUser(pool, userId, 'USER_DELETED');
 
   res.json({ success: true, message: 'Account deactivated' });
 }
