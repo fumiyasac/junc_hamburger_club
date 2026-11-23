@@ -151,6 +151,59 @@ npx tsc --noEmit
 </button>
 ```
 
+## エラーハンドリング (PR #65 以降)
+
+`src/lib/api.ts` の `request<T>` は失敗時に **`ApiError { code, message, details, httpStatus }`** を throw する (旧 `Error(json.error)` 文字列は廃止)。
+
+```tsx
+import { ApiError } from '@/lib/api'
+
+try {
+  await adminXxxApi.doSomething(token, ...)
+  await fetchItems()
+} catch (err) {
+  if (err instanceof ApiError) {
+    switch (err.code) {
+      case 'TOKEN_EXPIRED':
+      case 'TOKEN_INVALID':
+      case 'TOKEN_MISSING':
+      case 'USER_DEACTIVATED':
+        // 管理者トークンが切れた・無効化 → ログインへ
+        router.replace('/admin/login')
+        return
+      case 'VALIDATION_FAILED':
+        setFieldErrors(err.details?.issues ?? [])
+        return
+      case 'ORDER_INVALID_STATUS_TRANSITION':
+        alert(`${err.message}\n現: ${err.details?.current} / 可能: ${(err.details?.allowed as string[])?.join(', ')}`)
+        return
+      case 'BURGER_REFERENCED_BY_ORDERS':
+        alert(err.message)  // 「販売停止にしてください」
+        return
+    }
+    // 未分類のエラー: message をそのまま UI に出せる (日本語で揃っている)
+    alert(err.message)
+  } else {
+    console.error(err)
+    alert('通信エラーが発生しました')
+  }
+}
+```
+
+### authApi (公開サイト) と adminAuthApi (admin) のトークン名が違う
+
+PR #66 で `authApi` (公開サイトのユーザー用) は `accessToken` / `refreshToken` を返すが、**`adminAuthApi` (管理画面) は従来通り `{ token, user }` を返す**。admin の `useAdminAuth` が保存しているのは `token` (単一の admin JWT 24h)。混ぜない。
+
+```tsx
+// 管理画面 (variables が異なる)
+const { token } = await adminAuthApi.login(email, password).then(r => r)
+setLoggedIn(r.token)     // ← token
+
+// 公開サイト (別ファイル)
+const result = await authApi.login(email, password)
+setLoggedIn(result.user, result.accessToken)   // ← accessToken
+```
+
 ## 最終チェックリスト
 
 - [ ] ファイル先頭に `'use client'`

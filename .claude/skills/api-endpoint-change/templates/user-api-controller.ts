@@ -1,12 +1,14 @@
 // junc_hamburger_club_backend/user-api/src/controllers/<topic>.controller.ts
 //
-// テンプレート: pool.query + formatEntity + {success, data} の既存パターン。
-// burger.controller.ts の実装スタイルに合わせている。
+// 統一エラー形式 (#65) 対応テンプレート: AppError を throw、未捕捉は
+// error.middleware.ts が {success:false, error:{code,message,details}} に変換する。
+// 認証コードは #66 で TOKEN_* / USER_DEACTIVATED に rename 済み。
 
 import { Request, Response } from 'express';
 import { pool } from '../config/database';
-import { RowDataPacket } from 'mysql2';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { AuthRequest } from '../types';
+import { AppError, Errors } from '../lib/errors';
 
 // --- Row → DTO 変換 ------------------------------------------------------
 // snake_case 列を camelCase JSON に変換し、ID は必ず string で返す。
@@ -33,6 +35,7 @@ function formatReview(row: ReviewRow) {
 }
 
 // --- ハンドラ ------------------------------------------------------------
+// route 側で wrapAsync(listReviews) で包むこと (Express 4 は async エラー自動 forward なし)
 
 export async function listReviews(req: AuthRequest, res: Response): Promise<void> {
   const page = Number(req.query.page ?? 1);
@@ -63,14 +66,15 @@ export async function listReviews(req: AuthRequest, res: Response): Promise<void
   });
 }
 
-export async function getReviewById(req: Request, res: Response): Promise<void> {
+export async function getReview(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT * FROM reviews WHERE id = ?',
-    [req.params.id],
+    [id],
   );
   if (rows.length === 0) {
-    res.status(404).json({ success: false, error: 'Review not found' });
-    return;
+    // 汎用 404 は Errors.resourceNotFound を使う
+    throw Errors.resourceNotFound('review', id);
   }
   res.json({ success: true, data: formatReview(rows[0] as ReviewRow) });
 }
@@ -78,20 +82,33 @@ export async function getReviewById(req: Request, res: Response): Promise<void> 
 export async function createReview(req: AuthRequest, res: Response): Promise<void> {
   const userId = req.user!.userId;
   const { burgerId, rating, comment } = req.body as {
-    burgerId: string;
-    rating: number;
-    comment?: string;
+    burgerId: string; rating: number; comment?: string;
   };
 
-  const [result] = await pool.query(
+  // バリデーションは validate middleware で VALIDATION_FAILED として処理される想定。
+  // ここでは domain ルールのみ throw する。
+  if (rating < 1 || rating > 5) {
+    throw new AppError('VALIDATION_FAILED', 'rating は 1〜5 で指定してください', 400, {
+      issues: [{ field: 'rating', message: 'must be 1..5' }],
+    });
+  }
+
+  // 存在チェック
+  const [burgerRows] = await pool.query<RowDataPacket[]>(
+    'SELECT id FROM burgers WHERE id = ? AND is_available = 1',
+    [burgerId],
+  );
+  if (burgerRows.length === 0) {
+    throw Errors.burgerNotFound(burgerId);
+  }
+
+  const [result] = await pool.query<ResultSetHeader>(
     'INSERT INTO reviews (user_id, burger_id, rating, comment) VALUES (?, ?, ?, ?)',
     [userId, burgerId, rating, comment ?? null],
   );
-  const insertId = (result as { insertId: number }).insertId;
 
-  const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT * FROM reviews WHERE id = ?',
-    [insertId],
+  const [created] = await pool.query<RowDataPacket[]>(
+    'SELECT * FROM reviews WHERE id = ?', [result.insertId],
   );
-  res.status(201).json({ success: true, data: formatReview(rows[0] as ReviewRow) });
+  res.status(201).json({ success: true, data: formatReview(created[0] as ReviewRow) });
 }

@@ -47,9 +47,17 @@ AI コーディングエージェント向けのプロジェクトコンテキ�
 機能実装・変更の中心となる Skill を呼ぶ:
 - API 追加/変更 → `api-endpoint-change`
 - スキーマ変更 → `db-schema-change`
-- Flutter 新機能 → `flutter-feature`
+- Flutter 新機能 → `flutter-feature` (抽象 + Api + Mock の 3 層 Repository)
+- Flutter の実 API 配線 (Dio Interceptor / 自動 refresh / ApiException) → `flutter-api-integration`
 - 管理画面ページ → `admin-page`
 - E2E テスト追加 → `maestro-e2e-flow` (または Subagent の `e2e-test-writer` に依頼)
+
+### 1.5. 開発環境 + 疎通確認の運用
+
+- ローカル起動・migration 適用・テストトークン取得 → **`local-dev-env`** (`scripts/dev-up.sh` 等)
+- 主要業務フローの通し検証 → **`api-smoke-test`** (`scripts/smoke.sh`)
+
+PR の完了条件や実装直後の回帰確認では `scripts/smoke.sh` を回す。
 
 ### 2. 実装完了後 (PR 作成前): レビュー Subagent を並行実行
 
@@ -69,12 +77,14 @@ AI コーディングエージェント向けのプロジェクトコンテキ�
 
 | シナリオ | Skill | 続く Subagent |
 |---|---|---|
-| 新規エンドポイント | `api-endpoint-change` | `api-contract-reviewer` → `cross-stack-impact-analyzer` → (認証変更あれば `security-reviewer`) |
-| スキーマ変更 | `db-schema-change` | `cross-stack-impact-analyzer` (必須) → `api-contract-reviewer` |
+| 新規エンドポイント | `api-endpoint-change` → `api-smoke-test` | `api-contract-reviewer` → `cross-stack-impact-analyzer` → (認証変更あれば `security-reviewer`) |
+| スキーマ変更 | `db-schema-change` → `api-smoke-test` | `cross-stack-impact-analyzer` (必須) → `api-contract-reviewer` |
 | Flutter 新機能 | `flutter-feature` | `cross-stack-impact-analyzer` (fromJson と API の整合確認) |
+| Flutter 実 API 配線 | `flutter-api-integration` + `local-dev-env` | `cross-stack-impact-analyzer` |
 | 管理画面ページ | `admin-page` | `security-reviewer` (管理 API 認可) → `api-contract-reviewer` |
-| 認証・権限変更 | — | **`security-reviewer` 必須** |
-| 注文フロー改修 | `api-endpoint-change` | `cross-stack-impact-analyzer` (注文観点を含む) → `security-reviewer` (認可) |
+| 認証・権限変更 | `api-endpoint-change` → `api-smoke-test` | **`security-reviewer` 必須** |
+| 注文フロー改修 | `api-endpoint-change` → `api-smoke-test` | `cross-stack-impact-analyzer` (注文観点を含む) → `security-reviewer` (認可) |
+| 環境トラブル | `local-dev-env` | — |
 | 受け入れテスト追加 | — | `e2e-test-writer` |
 
 ### 出力フォーマット
@@ -93,4 +103,4 @@ AI コーディングエージェント向けのプロジェクトコンテキ�
 
 1. **Next.js ポート**: `architecture_guideline.md` §1 の図は `Port 3001` だが、実際は **3002** (`webfront/package.json` の `next dev -p 3002`, README §7 とも)
 2. **`guidance.md`**: `architecture_guideline.md` §9 のファイルマップに記載があるが、現在リポジトリに存在しない
-3. **Flutter のデータソース**: `pubspec.yaml` に Dio があり README §3 でも Dio 使用を謳うが、`mobile/lib/data/repositories/*.dart` の現行実装は `mock_data.dart` を返す構成で、user-api への実 HTTP 通信は未配線 (モック駆動)
+3. **Flutter のデータソース**: `pubspec.yaml` に Dio があり README §3 でも Dio 使用を謳うが、`mobile/lib/data/repositories/*.dart` の現行実装は `mock_data.dart` を返す構成で、user-api への実 HTTP 通信は未配線 (モック駆動)。実 API 配線は `flutter-api-integration` Skill に設計がまとめてあり、順次差し替え予定 (抽象 + Api 実装 + Mock 実装の 3 層化)
