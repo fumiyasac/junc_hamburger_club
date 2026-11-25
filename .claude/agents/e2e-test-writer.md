@@ -19,11 +19,31 @@ tools: Read, Grep, Glob, Write, Edit, Bash
 
 ## 本リポジトリ固有の制約
 
-### 現状の前提
-- **Repository は全てモック実装** (`junc_hamburger_club_mobile/lib/data/repositories/*.dart`)
-- バックエンド (`docker compose up`) は**不要**
-- `launchApp: clearState: true` で状態リセット
-- クライアント側バリデーション (`register_screen.dart` の正規表現など) はテスト可能
+### 現状の前提 (Mock / 実 API の 2 系統)
+
+本リポジトリは `--dart-define=USE_MOCK=true/false` で 2 系統を切り替える前提 (`flutter-feature` / `flutter-api-integration` Skill)。
+Maestro フローは**どちらを前提に書くかを明示**する:
+
+| モード | USE_MOCK | 起動コマンド | 利用場面 |
+|---|---|---|---|
+| **Mock** | `true` | `flutter run --dart-define=USE_MOCK=true` | 既存の `.maestro/flows/*.yaml` (当面これが主、バックエンド不要) |
+| **Api** | `false` (default) | `flutter run --dart-define=USE_MOCK=false --dart-define=API_HOST=...` | 実配線後の E2E、`./scripts/dev-up.sh` 前提 |
+
+**既存フローは全て Mock モード前提**。新規で Api モード用を書く場合は以下の追加ルールに従う:
+
+- `launchApp: clearState: true` だけでは DB は残る → 毎回 **unique email** を使う
+  ```yaml
+  - evalScript: ${output.email = 'e2e-' + Date.now() + '@example.com'}
+  ```
+- 注文フローのテストはカートが前回の残骸を持たないよう、冒頭で `DELETE /cart` 相当を踏むステップを追加
+- バックエンド起動確認は `.maestro/flows/<name>_api.yaml` の冒頭に手動注記 (Maestro 自体はバックエンドを立ち上げない)
+- 命名規則: Mock 専用は `<feature>.yaml`、Api 用は `<feature>_api.yaml` で分離
+- `verification_manual.md` の項目番号を参照する際は、どちらのモードでの検証かを明記
+
+### 要素特定の方針
+
+- `launchApp: clearState: true` で状態リセット (Mock では十分、Api モードは DB クリア責務が別)
+- クライアント側バリデーション (`register_screen.dart` の正規表現など) はどちらのモードでもテスト可能
 
 ### 要素特定の方針
 

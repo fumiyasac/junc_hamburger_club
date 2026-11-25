@@ -59,31 +59,43 @@ AI コーディングエージェント向けのプロジェクトコンテキ�
 
 PR の完了条件や実装直後の回帰確認では `scripts/smoke.sh` を回す。
 
-### 2. 実装完了後 (PR 作成前): レビュー Subagent を並行実行
+### 2. 実装完了直後: 検証ランナー
 
-`.claude/agents/` のレビュー 3 本は **読み取り専用**。差分を監査して所定フォーマットで指摘を返す:
+- **`verification-runner`** (読み取り/コマンド実行のみ、編集なし): `git diff` で変更があったコンポーネントだけ、CI (`.github/workflows/`) と同じコマンド (lint / 型 / テスト / ビルド) を実行し、**失敗だけ末尾 30 行で要約**して返す。バックエンドが起動していれば `scripts/smoke.sh` も実行。
+  - PR の完了条件の一次チェックに使う。大量ログをメイン会話に持ち込まないのが目的。
 
-- **`api-contract-reviewer`**: OpenAPI ↔ 実装 ↔ 両クライアントの整合 (API を触った場合)
-- **`cross-stack-impact-analyzer`**: 共有 MySQL / 2 API / 2 クライアントへの波及、注文フロー・ステータス遷移の整合
-- **`security-reviewer`**: JWT / 認可 / SQL / 入力検証 / シークレット (認証・権限・入力・SQL を触った場合)
+### 3. PR 作成前: レビュー Subagent を並行実行
+
+`.claude/agents/` のレビュー 5 本は **読み取り専用**。差分を監査して統一フォーマットで指摘を返す:
+
+- **`api-contract-reviewer`**: OpenAPI ↔ 実装 ↔ 両クライアントの整合 + #65 統一エラー形式 + `docs/error_codes.md` + Idempotency-Key 判定
+- **`cross-stack-impact-analyzer`**: 共有 MySQL / 2 API / 2 クライアントへの波及、#54 pickup_slot_counters / #56 オプション snapshot / #65 idempotency_keys / ステータス遷移 3-source
+- **`security-reviewer`**: JWT / 認可 / SQL / 入力検証 / シークレット + #66 refresh token (ハッシュ保存・ローテ・再利用検知・family 失効・sid 失効チェック・rate limit) + Flutter トークン保存
+- **`flutter-reviewer`**: Flutter 固有 (Riverpod 3.x 禁止事項 / context.mounted / AsyncValue 3 状態 / ApiException 分岐 / Semantics / トークン保存漏洩)
 
 指摘があれば修正して再度レビューを回す。
 
-### 3. 受け入れテスト
+### 4. ドキュメント整合性チェック
 
-- **`e2e-test-writer`** (編集可) に Maestro フロー作成を依頼。`verification_manual.md` の項目番号を要件として渡せる
+- **`docs-sync-checker`** (読み取り専用): 差分と README / verification_manual / `docs/error_codes.md` / 各 CLAUDE.md / **`.claude/skills/*/SKILL.md` とテンプレート** の乖離を検出。特に Skill drift (古い Skill で次の作業者がバグを量産するリスク) を重点確認。
+
+### 5. 受け入れテスト
+
+- **`e2e-test-writer`** (編集可) に Maestro フロー作成を依頼。Mock モード (既存) / Api モード (実配線後、`./scripts/dev-up.sh` 前提) を明示して渡す。
 
 ### シナリオ別の典型組み合わせ
 
-| シナリオ | Skill | 続く Subagent |
+全シナリオ共通で、実装完了直後に **`verification-runner`** を回し、PR 作成直前に **`docs-sync-checker`** を回す。以下はそれに加えて並行実行する Subagent:
+
+| シナリオ | Skill | 並行レビュー Subagent |
 |---|---|---|
-| 新規エンドポイント | `api-endpoint-change` → `api-smoke-test` | `api-contract-reviewer` → `cross-stack-impact-analyzer` → (認証変更あれば `security-reviewer`) |
-| スキーマ変更 | `db-schema-change` → `api-smoke-test` | `cross-stack-impact-analyzer` (必須) → `api-contract-reviewer` |
-| Flutter 新機能 | `flutter-feature` | `cross-stack-impact-analyzer` (fromJson と API の整合確認) |
-| Flutter 実 API 配線 | `flutter-api-integration` + `local-dev-env` | `cross-stack-impact-analyzer` |
-| 管理画面ページ | `admin-page` | `security-reviewer` (管理 API 認可) → `api-contract-reviewer` |
+| 新規エンドポイント | `api-endpoint-change` → `api-smoke-test` | `api-contract-reviewer` + `cross-stack-impact-analyzer` + (認証変更あれば `security-reviewer`) |
+| スキーマ変更 | `db-schema-change` → `api-smoke-test` | `cross-stack-impact-analyzer` (必須) + `api-contract-reviewer` |
+| Flutter 新機能 | `flutter-feature` | **`flutter-reviewer`** + `cross-stack-impact-analyzer` (fromJson と API の整合) |
+| Flutter 実 API 配線 | `flutter-api-integration` + `local-dev-env` | **`flutter-reviewer`** + `cross-stack-impact-analyzer` + `security-reviewer` (トークン保存) |
+| 管理画面ページ | `admin-page` | `security-reviewer` (管理 API 認可) + `api-contract-reviewer` |
 | 認証・権限変更 | `api-endpoint-change` → `api-smoke-test` | **`security-reviewer` 必須** |
-| 注文フロー改修 | `api-endpoint-change` → `api-smoke-test` | `cross-stack-impact-analyzer` (注文観点を含む) → `security-reviewer` (認可) |
+| 注文フロー改修 | `api-endpoint-change` → `api-smoke-test` | `cross-stack-impact-analyzer` (注文観点) + `security-reviewer` (認可) |
 | 環境トラブル | `local-dev-env` | — |
 | 受け入れテスト追加 | — | `e2e-test-writer` |
 

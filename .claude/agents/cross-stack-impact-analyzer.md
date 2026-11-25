@@ -1,6 +1,6 @@
 ---
 name: cross-stack-impact-analyzer
-description: 変更が共有 MySQL テーブルを介して user-api と admin-api の双方、およびモバイル・Web クライアントに与える影響を洗い出す。特に orders.status の値集合、ID の型、日付形式、同一テーブルを両 API が別の列順で Scan している箇所、注文トランザクション・ステータス遷移・販売停止商品の扱いなど、データ整合性の論点を網羅する。スキーマ変更・両 API に跨る改修・注文/認証/カート周りの変更後、PR 作成前に使う。読み取り専用。
+description: スキーマ変更・両 API に跨る改修・注文/認証/カート/オプション周りの変更後、PR 作成前に、共有 MySQL (ID 型・日付・列順・enum) に加え、#54 pickup_slot_counters の FOR UPDATE + キャンセル減算、#56 order_item_options スナップショットと option_id nullable、#65 idempotency_keys のフロー、ステータス遷移表 (TS/Go/webfront 3-source) の整合を機械的にチェックする。読み取り専用。「クロススタック影響」「注文フローのレビュー」などで使用する。
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -52,22 +52,48 @@ tools: Read, Grep, Glob, Bash
 
 ### 注文フロー (orders 周りを触った場合は必ず検証)
 
-- **トランザクション**: `createOrder` が `conn.beginTransaction()` / `commit` / `rollback` を正しく回しているか
+#### #54 受け取り枠カウンタ
+- `pickup_slot_counters` の **`SELECT reserved_count ... FOR UPDATE`** が tx 内にあるか
+- 注文キャンセル (user `cancelOrder` / admin `UpdateOrderStatus` の `cancelled` 遷移) で `GREATEST(reserved_count - 1, 0)` の減算が入っているか
+- 「二重減算」防止: `req.Status == "cancelled" && currentStatus != "cancelled"` の条件 (admin-api) が壊れていないか
+
+#### #56 オプションのスナップショット
+- `order_item_options` に `group_name`/`option_name`/`price_delta` を snapshot 保存しているか (`options` マスタ削除/変更に非依存)
+- `option_id FOREIGN KEY ... ON DELETE SET NULL` で、option 削除後も表示が壊れないか
+- 注文確定時の `cart_item_options JOIN options FOR SHARE` (売り切れ再検証、#56) が維持されているか
+- 価格計算 (`computeUnitPrice` / `computeSubtotal`) が **createOrder と `/orders/preview` で共通ロジックを使っているか** (重複実装はドリフトのもと、`src/lib/order_pricing.ts` に集約)
+- **税計算の丸め**: `createOrder` と `computePreview` の両方で `Math.round(subtotal * 0.1)` に揃っているか (以前は preview だけ Math.round で確定側が浮動小数のままだった過去事例あり)
+
+#### #65 冪等性キー
+- `idempotency_keys` の INSERT は tx の**外** (middleware 段階)、成功時 UPDATE SUCCEEDED、**失敗時は DELETE** で再試行可能化
+- PR #65 の tx フローを壊していないか: pickup slot FOR UPDATE → options FOR SHARE → order 作成 → idempotency UPDATE の順序
+- 並列送信で orders が 1 件のみ (`user_id, idempotency_key` PRIMARY KEY で排他)
+
+#### #65 ステータス遷移表 (3-source 同期)
+- 以下 3 ファイルで `allowedTransitions` が完全一致しているか
+  - `junc_hamburger_club_backend/user-api/src/lib/order_status.ts`
+  - `junc_hamburger_club_backend/admin-api/models/order_status.go`
+  - `junc_hamburger_club_webfront/src/lib/order_status.ts`
+- 特に `ready → cancelled` が全ファイルで**禁止**になっているか (調理完了廃棄回避方針)
+- admin-api `UpdateOrderStatus` で `models.CanTransition` チェックが維持されているか
+
+#### 税・金額
+- **tax / total の計算**: `taxAmount = Math.round(subtotal * 0.1)`, `totalAmount = subtotal + taxAmount` の整合
 - **販売停止商品の除外**: カート→注文の SQL に `AND b.is_available = 1` があるか
-- **tax / total の計算**: `taxAmount = subtotal * 0.1`, `totalAmount = subtotal + taxAmount` の整合
-- **キャンセル可能ステータス**: `received` のみキャンセル可。これが緩められていないか
-- **二重注文の防止**: 現状 idempotency key 等はない → 改修で導入されているか、未対応のままなら中〜高の指摘対象
-- **order_number の一意性**: `generateOrderNumber()` は `JUNC-YYYYMMDD-RRRR` 形式。`UNIQUE KEY uq_orders_number` 制約と衝突した場合のリトライが入っているか
+- **order_number の一意性**: `generateOrderNumber()` は `JUNC-YYYYMMDD-RRRR` 形式。`UNIQUE KEY uq_orders_number` 制約との衝突リトライは未実装 (改善なら注記)
 
 ### 認証・JWT (認証周りを触った場合)
 
 - **user-api と admin-api が同じ `JWT_SECRET` env を参照している** 事実を認識する (詳細は `security-reviewer` に委譲)
-- トークン有効期限: user-api 7d / admin-api 24h
+- トークン有効期限: user-api accessToken 15 分 / refreshToken 30 日 (#66) / admin-api 24h
+- **sid 失効チェック**: user-api `authenticate` は `users.is_active` と `refresh_sessions.sid.revoked_at` を 1 クエリで確認 (#66)
+- 失効トリガー: パスワード変更 / 退会 / admin 無効化 で `revokeAllForUser` が呼ばれる (発火漏れは security-reviewer に委譲)
 
-### Flutter 現状の制約
+### Flutter の整合
 
-- **Repository は全てモック実装** (`mock_data.dart` 参照)。API 契約を変えても Flutter の実通信は壊れないが、`fromJson` の整合を欠くと**モックから実 API に切り替えた瞬間に全画面が崩れる**
-- 変更が影響する Flutter 側の修正範囲を「現状: 非活性 / 将来: 要対応」に分類して報告
+- 現状の Repository は Mock 併設、`flutter-api-integration` Skill の 3 層構成が前提
+- `fromJson` の **camelCase キー** と `api_exception.dart` の `error.code` マッピングが破壊的変更に追従しているか
+- 変更が影響する Flutter 側の修正範囲を「Mock: 影響なし / Api 実装: 要対応」で分類して報告
 
 ### docker-compose 禁止
 

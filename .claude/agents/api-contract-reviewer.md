@@ -1,6 +1,6 @@
 ---
 name: api-contract-reviewer
-description: API 周り (user-api / admin-api の実装、swagger/openapi.yaml と docs/swagger.yaml、webfront の src/lib/api.ts と src/lib/types.ts、Flutter の lib/data/models と lib/data/repositories) に変更を加えた後、PR 作成前に、仕様 ↔ 実装 ↔ 両クライアントの整合性を機械的にチェックする。読み取り専用。修正は行わず、指摘を所定フォーマットで返す。
+description: API を触った PR 作成前に、OpenAPI 仕様 ↔ 実装 ↔ TS/Dart クライアントの整合性に加え、#65 で導入された統一エラー形式 (error.code/message/details)・docs/error_codes.md とのコード整合・Idempotency-Key を受けるべきエンドポイントの判定・$ref: '#/components/schemas/Error' の使用を機械的にチェックする。読み取り専用。「API 契約レビュー」「PR 作成前の整合確認」などで使用する。
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -10,6 +10,7 @@ tools: Read, Grep, Glob, Bash
 
 - `CLAUDE.md` (ルート) — モノレポ構成、2 API / 1 MySQL の関係
 - `junc_hamburger_club_backend/CLAUDE.md` — 両 API の規約
+- **`docs/error_codes.md`** — エラーコード一覧 (正本)。追加・改名・削除の差分を常に突き合わせる
 - `api_audit_report.md` (もしリポジトリに残っていれば) — 過去に検出した契約ドリフト例
 - 差分: `git diff origin/main...HEAD` または対象ブランチ
 
@@ -36,9 +37,34 @@ Grep で "どのレイヤーに手が入ったか" を把握してからレビ�
   - admin-api model: `json:"id,string"` / `json:"categoryId,string"` タグ
   - webfront `types.ts`: `id: string`
   - Flutter `fromJson`: `json['id'].toString()`
-- **レスポンス封筒**: 両 API で成功時 `{ "success": true, "data": ... }`、失敗時 `{ "success": false, "error": "..." }` に揃っているか
+- **レスポンス封筒 (#65 以降、破壊的変更済み)**: 両 API で
+  - 成功時 `{ "success": true, "data": ... }`
+  - 失敗時 `{ "success": false, "error": { "code": "UPPER_SNAKE_CASE", "message": "日本語", "details": {...}? } }`
+  - 旧 `{"success":false,"error":"文字列"}` の残骸があれば 🔴 高。user-api は `AppError` throw、admin-api は `apierr.*` プリセット
+- **OpenAPI のエラーレスポンス**: `$ref: '#/components/schemas/Error'` を使い、旧インライン `{success,error:string}` を書かない
 - **OpenAPI の path params**: `type: string` (以前 `integer` のまま放置されたケースあり)
 - **Pagination 形状**: `{ total, page, limit, pages }` を両 API で揃えているか (admin-api で `pages` が抜けやすい)
+
+### 統一エラーの整合 (#65)
+
+| 観点 | 検出 |
+|---|---|
+| 実装で使っている `code` が `docs/error_codes.md` に登録されているか | `grep -rhE "new AppError\('[A-Z_]+'" user-api/src` と `grep -rE 'RespondCode\(c, "[A-Z_]+"' admin-api` を抽出して突合 |
+| 命名が `UPPER_SNAKE_CASE` + ドメインプレフィクス (`TOKEN_` / `OPTION_` / `ORDER_` 等) に沿うか | |
+| OpenAPI の `description` に返しうる `error.code` を列挙しているか | 検出が難しければ「推奨」止まりで指摘 |
+| Flutter `api_exception.dart` / `error_mapping.dart` にも対応するコードがあるか (未配線でも整合させる) | `grep -n "'[A-Z_]+' =>" mobile/lib/core/services/error_mapping.dart` |
+
+### Idempotency-Key の判定 (#65)
+
+書き込み系 (`POST`) で以下を全て満たすなら、middleware (`src/middleware/idempotency.middleware.ts`) で受けるべき:
+
+1. 副作用がある (DB 書き込み・課金・外部通知)
+2. 同一リクエスト再送で結果が 1 回だけ起きる保証が必要
+3. クライアントが再試行しうる
+
+該当例: `POST /orders`。非該当: `POST /cart` (数量加算が自然)、`POST /auth/refresh` (ローテーション自体で冪等)。
+
+**判定ミス** (必要なのに受けていない / 不要なのに受けている) を指摘する。
 
 ### フィールドのドリフト
 - Flutter `fromJson` が **camelCase** のキーを期待しているか (`category_id` 等の snake_case が残っていないか — 過去に全画面で破綻した前例あり)
@@ -60,7 +86,7 @@ Grep で "どのレイヤーに手が入ったか" を把握してからレビ�
 - 404 時に `{success: false}` を返しているか (200 OK で空配列を返していないか)
 
 ### 現状の制約として把握しておく
-- **Flutter Repository は全てモック実装** (`CLAUDE.md` の "既知の不一致" 参照)。実 API 配線されていないため、API 変更はまず Flutter の fromJson を camelCase に揃えるレビューにとどめる。実通信エラーの検証は現時点ではできない
+- **Flutter Repository は現状 Mock 実装**、実 API 配線は `flutter-api-integration` Skill で順次。実通信エラー検証は未着手でも、`fromJson` のキー (camelCase) と `api_exception.dart` の `error.code` マッピングが実装と乖離していないかはレビュー対象
 
 ## 実行手順
 
