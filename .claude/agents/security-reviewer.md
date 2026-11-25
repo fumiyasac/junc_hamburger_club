@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-description: JWT の取り扱い (ユーザー用/管理者用の分離、検証)、トークンの保存場所、認可漏れ、入力値検証、SQL の組み立て方、シークレットの混入をレビューする。認証・権限・入力・SQL いずれかを触った PR 作成前、または認証/認可まわりの新規実装後に使う。読み取り専用。
+description: 認証・権限・入力・SQL を触った PR 作成前に、JWT / 認可 / 入力検証 / SQL / シークレットに加え、#66 で導入されたリフレッシュトークン (SHA-256 ハッシュ保存、90 秒 grace のローテーション、UA/IP mismatch の再利用検知、family 単位失効、sid 失効チェック、rate limit、JWT_SECRET 32 文字検証) と Flutter 側のトークン保存 (flutter_secure_storage / メモリ限定 accessToken / ログ漏洩) をレビューする。読み取り専用。「セキュリティレビュー」「認証変更の監査」などで使用する。
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -11,8 +11,15 @@ tools: Read, Grep, Glob, Bash
 - `CLAUDE.md` (ルート)
 - `junc_hamburger_club_backend/CLAUDE.md` — 認証・docker 規約
 - `junc_hamburger_club_backend/user-api/src/middleware/auth.middleware.ts`
+- `junc_hamburger_club_backend/user-api/src/middleware/idempotency.middleware.ts` (#65)
+- `junc_hamburger_club_backend/user-api/src/middleware/rate_limit.middleware.ts` (#66)
+- `junc_hamburger_club_backend/user-api/src/lib/refresh_rotation.ts` (#66)
+- `junc_hamburger_club_backend/user-api/src/lib/tokens.ts` (#66)
+- `junc_hamburger_club_backend/user-api/src/config/env.ts` — JWT_SECRET 検証 (#66)
 - `junc_hamburger_club_backend/admin-api/middleware/auth.go`
 - `junc_hamburger_club_backend/admin-api/handlers/auth.go`
+- `junc_hamburger_club_backend/admin-api/config/config.go` — JWT_SECRET 検証 (#66)
+- **`docs/flutter_auth_guide.md`** — Flutter 側トークン保存の正本
 - 差分: `git diff origin/main...HEAD --name-only`
 
 ## 本リポジトリ固有の既知事項
@@ -20,13 +27,14 @@ tools: Read, Grep, Glob, Bash
 これらは**過去から残っている設計上の論点**です。差分でこの状況を改善/悪化させていないかを確認します:
 
 1. **user-api と admin-api が同じ `JWT_SECRET` env を参照**
-   - user-api token payload: `{ userId, email }` (有効期限 7d)
-   - admin-api token payload: `{ adminId, email }` (有効期限 24h)
-   - ペイロード形状が偶然合えば他方の API でも通る理論的リスクあり。鍵を分離する改修 (`USER_JWT_SECRET` / `ADMIN_JWT_SECRET` 等) が入ったら評価対象
+   - user-api token payload: `{ userId, email, sid }` (アクセス 15 分、#66)
+   - admin-api token payload: `{ adminId, email }` (24 時間)
+   - ペイロード形状が偶然合えば他方の API でも通る理論的リスクあり。鍵を分離する改修が入ったら評価対象
 2. **admin 認証は DB ではなく `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH` env ベース**
-   - admin テーブルは存在しない。ユーザーテーブルの管理者フラグも無い
+   - admin テーブルは存在しない
 3. **フロントの admin token は `localStorage` 保存** (`useAdminAuth.ts`)
-   - XSS 耐性としては HttpOnly Cookie より弱い。要件次第
+   - XSS 耐性としては HttpOnly Cookie より弱い
+4. **両 API ともに `JWT_SECRET` が 32 文字未満だと起動失敗** (#66 で両側に導入済み)。緩める変更は 🔴
 
 ## チェック観点
 
@@ -88,10 +96,36 @@ tools: Read, Grep, Glob, Bash
 - `useAdminAuth` の logout が `localStorage.removeItem` だけでなく API 呼び出しも必要になっていないか
 - 入力値を DOM に流し込む箇所で `dangerouslySetInnerHTML` を使っていないか
 
-### I. モバイル (Flutter)
+### I. モバイル (Flutter) — `docs/flutter_auth_guide.md` 正本
 
-- 現状はモック駆動のため実通信リスクは低いが、トークンを `SharedPreferences` に保存する実装は暗号化なし → 変更時は記録
+- `refreshToken` は **`flutter_secure_storage`** に保存必須。`SharedPreferences` に機微情報が無いことを確認
+- `accessToken` は **メモリのみ** (`AuthStore` インスタンス変数)。永続化があれば 🔴
+- `print` / `debugPrint` / Dio `LogInterceptor(responseBody: true)` でトークン・PII を出していないか (`LogInterceptor` が無条件使用なら中)
 - `--dart-define=API_HOST=...` で変わる URL をハードコード URL に変えていないか
+- Idempotency-Key 生成は **ボタン押下 1 回につき 1 つ** (リトライでは同じキーを使い回す) になっているか — 毎リトライで新 UUID を発行していたら中
+
+### J. リフレッシュトークン系 (#66)
+
+- **ハッシュ保存の徹底**: `refresh_sessions.token_hash` は SHA-256 の 64 hex で保存。平文がログ・DB・レスポンス以外に漏れていないか
+  ```bash
+  grep -rn "refresh_token\|refreshToken" user-api/src/ | grep -v "node_modules"
+  ```
+  plaintext を insert/update しているクエリがないか
+- **90 秒 grace のローテーション**: `rotate` が `prev_token_hash` を持ち、`prev_valid_until` を正しく更新しているか。grace 変更は 🔴 (再送救済の挙動が変わる)
+- **再利用検知**: `prev_token_hash` 一致 + `prev_valid_until` 超過 **または UA/IP mismatch** で `family_id` 全体を `REUSE_DETECTED` で失効させているか
+- **全失効トリガー**: `revokeAllForUser(pool, userId, reason)` が以下で呼ばれているか
+  - パスワード変更 (`PASSWORD_CHANGED`)
+  - 退会 `DELETE /users/me` (`USER_DELETED`)
+  - admin ユーザー無効化 (`ADMIN_REVOKED`)
+  - 発火漏れがあれば 🔴
+- **sid 失効チェック**: `authenticate` middleware が `users.is_active` と `refresh_sessions.sid.revoked_at` を 1 クエリで同時確認しているか。sid がない/revoked なら `TOKEN_INVALID`
+- **rate limit**: `/auth/login`, `/auth/register`, `/auth/refresh` に `rate_limit.middleware.ts` が適用されているか。`trust proxy` 設定の変更は 🟠
+- **refreshToken 形式検証**: `/auth/refresh` / `/auth/logout` が 64-hex 正規表現でバリデーションしているか
+
+### K. Idempotency-Key (#65)
+
+- `idempotency_keys` の PENDING 行が **エラー時に削除されている** か (`error.middleware.ts` → `markIdempotencyFailed`)。削除漏れは「永久 IN_PROGRESS」バグになるので 🔴
+- `request_hash` 不一致で `ORDER_IDEMPOTENCY_CONFLICT` 422 を返しているか
 
 ## 実行手順
 
