@@ -52,6 +52,38 @@ npm run dev          # http://localhost:3002
 npm run build
 npm run start
 npx tsc --noEmit     # 型チェックのみ
+npm run lint         # next lint --dir src
+npm test             # Vitest (ユニット)
+npm run e2e          # Playwright (バックエンド起動済み前提)
 ```
 
 `autoprefixer` は PostCSS 経由で必須依存。削除しないこと。
+
+## テスト
+
+### ユニットテスト (Vitest)
+
+- 対象: `src/lib/{api,order_status,utils}.ts` 等の純粋ロジック
+- 配置: `src/**/__tests__/*.test.ts(x)`
+- 設定: `vitest.config.ts` + `src/test/setup.ts` (jsdom, @testing-library)
+- 実行: `npm test` (watch なら `npm run test:watch`)
+- フレームワーク選定理由: Next.js 15 公式推奨、Vite ベースで高速、Jest 互換 API
+
+### E2E テスト (Playwright)
+
+- 対象: 管理画面 CRUD、公開サイト、注文ステータス遷移など
+- 配置: `tests/e2e/{admin,public}/*.spec.ts` + `tests/e2e/helpers/`
+- 設定: `playwright.config.ts` (baseURL=3002, trace=on-failure)
+- 実行:
+  ```bash
+  # 1) バックエンド起動
+  cd .. && ./scripts/dev-up.sh && cd junc_hamburger_club_webfront
+  # 2) Next.js を別ターミナルで (npm run dev か build + start)
+  npm run dev
+  # 3) E2E
+  npm run e2e
+  ```
+- 要素特定は **getByRole 優先**、動的 ID は `data-testid` を最小限追加
+- シークレットは env: `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD_PLAIN`
+- 既存命名: `order-card-${id}`, `status-btn-${status}`, `option-availability-${id}`, `toggle-availability-${id}`
+- 詳細: [`.claude/skills/playwright-e2e-flow/SKILL.md`](../.claude/skills/playwright-e2e-flow/SKILL.md)

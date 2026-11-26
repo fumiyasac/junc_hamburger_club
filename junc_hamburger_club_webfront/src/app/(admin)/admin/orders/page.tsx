@@ -128,6 +128,7 @@ export default function AdminOrdersPage() {
               return (
                 <div
                   key={order.id}
+                  data-testid={`order-card-${order.id}`}
                   className={`card p-5 ${overdue ? 'bg-red-50 border-2 border-red-300' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -176,6 +177,7 @@ export default function AdminOrdersPage() {
                     {allowedNext(order.status as OrderStatus).map((s) => (
                       <button
                         key={s}
+                        data-testid={`status-btn-${s}`}
                         onClick={() => updateStatus(order.id, s)}
                         className="px-3 py-1 rounded-lg text-xs font-bold transition-colors bg-white border border-gray-200 hover:border-primary hover:text-primary"
                       >

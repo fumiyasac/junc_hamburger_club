@@ -50,7 +50,8 @@ AI コーディングエージェント向けのプロジェクトコンテキ�
 - Flutter 新機能 → `flutter-feature` (抽象 + Api + Mock の 3 層 Repository)
 - Flutter の実 API 配線 (Dio Interceptor / 自動 refresh / ApiException) → `flutter-api-integration`
 - 管理画面ページ → `admin-page`
-- E2E テスト追加 → `maestro-e2e-flow` (または Subagent の `e2e-test-writer` に依頼)
+- E2E テスト追加 (Flutter) → `maestro-e2e-flow` (または `e2e-test-writer`)
+- E2E テスト追加 (Next.js) → `playwright-e2e-flow` (または `e2e-test-writer`)
 
 ### 1.5. 開発環境 + 疎通確認の運用
 

@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 export default function Footer() {
   return (
     <footer className="bg-gray-900 text-gray-300 py-10 px-4 mt-auto">
@@ -15,8 +17,8 @@ export default function Footer() {
           <div>
             <h3 className="font-bold text-white mb-3">メニュー</h3>
             <ul className="space-y-2 text-sm">
-              <li><a href="/menu" className="hover:text-white transition-colors">全メニュー</a></li>
-              <li><a href="/menu?popular=true" className="hover:text-white transition-colors">人気バーガー</a></li>
+              <li><Link href="/menu" className="hover:text-white transition-colors">全メニュー</Link></li>
+              <li><Link href="/menu?popular=true" className="hover:text-white transition-colors">人気バーガー</Link></li>
             </ul>
           </div>
           <div>
