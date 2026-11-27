@@ -31,7 +31,7 @@ src/app/
 
 ```
 NEXT_PUBLIC_USER_API_URL=http://localhost:3100/api/v1
-NEXT_PUBLIC_ADMIN_API_URL=http://localhost:8080/api/v1/admin
+NEXT_PUBLIC_ADMIN_API_URL=http://localhost:8081/api/v1/admin
 ```
 
 ## バーガー画像

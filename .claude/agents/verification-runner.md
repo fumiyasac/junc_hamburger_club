@@ -52,7 +52,7 @@ docker run --rm -v "$PWD":/app -w /app golang:1.26-alpine \
 ```bash
 docker run --rm -v "$PWD":/app -w /app \
   -e NEXT_PUBLIC_USER_API_URL=http://localhost:3100/api/v1 \
-  -e NEXT_PUBLIC_ADMIN_API_URL=http://localhost:8080/api/v1/admin \
+  -e NEXT_PUBLIC_ADMIN_API_URL=http://localhost:8081/api/v1/admin \
   node:22-alpine sh -c "npm ci --silent && npm run lint && npx tsc --noEmit && npm test && npm run build"
 ```
 

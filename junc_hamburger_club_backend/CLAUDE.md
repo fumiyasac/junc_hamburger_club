@@ -7,7 +7,7 @@ Docker Compose で動く 3 サービス構成。詳細は [`../README.md`](../RE
 | サービス | 技術 | ポート (host → container) | コンテナ名 |
 |---|---|---|---|
 | `user-api` | TypeScript + Express + mysql2 | 3100 → 3000 | `junc_user_api` |
-| `admin-api` | Go 1.26 + Gin + go-sql-driver | 8080 → 8080 | `junc_admin_api` |
+| `admin-api` | Go 1.26 + Gin + go-sql-driver | 8081 → 8080 | `junc_admin_api` |
 | `mysql` | MySQL 8.0 | 3307 → 3306 | `junc_mysql` |
 
 **両 API は同じ MySQL / 同じスキーマを共有している**。モデル/型を変える時は必ず両側 (TS の `user-api/src/` と Go の `admin-api/models/`) と `init-db/01_schema.sql` をセットで更新すること。
@@ -44,7 +44,7 @@ TypeScript 側 (`user-api/src/config/database.ts`) の mysql2 pool にも `chars
 
 ```bash
 curl http://localhost:3100/health              # => {"status":"ok","service":"junc-user-api"}
-curl http://localhost:8080/health              # => {"status":"ok","service":"junc-admin-api"}
+curl http://localhost:8081/health              # => {"status":"ok","service":"junc-admin-api"}
 curl http://localhost:3100/api/v1/burgers | jq '.data.burgers | length'   # => 20
 ```
 

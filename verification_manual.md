@@ -30,7 +30,7 @@
 ```
 □ バックエンド起動済み（docker compose up -d）
 □ curl http://localhost:3000/health → {"status":"ok","service":"junc-user-api"}
-□ curl http://localhost:8080/health → {"status":"ok","service":"junc-admin-api"}
+□ curl http://localhost:8081/health → {"status":"ok","service":"junc-admin-api"}
 □ Webフロントエンド起動済み（npm run dev）
 □ http://localhost:3001 にアクセスできることを確認
 □ Flutterアプリがシミュレーター/エミュレーターで起動済み
@@ -304,7 +304,7 @@ stateDiagram-v2
 curl -s http://localhost:3000/health | jq .
 # 期待: {"status":"ok","service":"junc-user-api"}
 
-curl -s http://localhost:8080/health | jq .
+curl -s http://localhost:8081/health | jq .
 # 期待: {"status":"ok","service":"junc-admin-api"}
 ```
 
@@ -548,12 +548,12 @@ sort /tmp/par_results.log | uniq -c
 ATOKEN=...
 
 # 現在の設定取得
-curl -s -H "Authorization: Bearer $ATOKEN" http://localhost:8080/api/v1/admin/pickup-settings | jq
+curl -s -H "Authorization: Bearer $ATOKEN" http://localhost:8081/api/v1/admin/pickup-settings | jq
 
 # slot_capacity を 8 に更新
 curl -s -X PUT -H "Authorization: Bearer $ATOKEN" -H "Content-Type: application/json" \
   -d '{"slotIntervalMin":15,"slotCapacity":8,"leadTimeMin":20,"lookaheadDays":3,"openTime":"11:00:00","closeTime":"21:00:00","closedWeekdays":""}' \
-  http://localhost:8080/api/v1/admin/pickup-settings
+  http://localhost:8081/api/v1/admin/pickup-settings
 
 # User API の枠一覧に反映
 curl -s "http://localhost:3100/api/v1/pickup-slots?date=$TOMORROW" | jq '.data.slots[0]'
@@ -562,7 +562,7 @@ curl -s "http://localhost:3100/api/v1/pickup-slots?date=$TOMORROW" | jq '.data.s
 # 不正値 (open >= close) で 400
 curl -s -w "\n%{http_code}" -X PUT -H "Authorization: Bearer $ATOKEN" -H "Content-Type: application/json" \
   -d '{"slotIntervalMin":15,"slotCapacity":4,"leadTimeMin":20,"lookaheadDays":3,"openTime":"21:00:00","closeTime":"11:00:00","closedWeekdays":""}' \
-  http://localhost:8080/api/v1/admin/pickup-settings
+  http://localhost:8081/api/v1/admin/pickup-settings
 # 期待: 400
 ```
 

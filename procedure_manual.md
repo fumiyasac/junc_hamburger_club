@@ -34,7 +34,7 @@ graph LR
     subgraph Docker["🐳 Docker Compose 内部（自動起動順）"]
         direction TB
         M[("mysql\nPort 3306\nhealthcheck")] -->|healthy 後| UA["user-api\nPort 3000"]
-        M -->|healthy 後| AA["admin-api\nPort 8080"]
+        M -->|healthy 後| AA["admin-api\nPort 8081"]
     end
 
     B -.起動.- Docker
@@ -195,7 +195,7 @@ docker compose ps
 NAME              STATUS              PORTS
 junc_mysql        running (healthy)   0.0.0.0:3306->3306/tcp
 junc_user_api     running             0.0.0.0:3000->3000/tcp
-junc_admin_api    running             0.0.0.0:8080->8080/tcp
+junc_admin_api    running             0.0.0.0:8081->8080/tcp
 ```
 
 > **ポイント**: `mysql` の STATUS が `running (healthy)` になるまで少し時間がかかります（約30秒〜1分）。  
@@ -209,7 +209,7 @@ curl http://localhost:3000/health
 # 期待するレスポンス: {"status":"ok","service":"junc-user-api"}
 
 # admin-api の動作確認
-curl http://localhost:8080/health
+curl http://localhost:8081/health
 # 期待するレスポンス: {"status":"ok","service":"junc-admin-api"}
 
 # バーガー一覧（認証不要）
@@ -308,7 +308,7 @@ cp .env.local.example .env.local
 NEXT_PUBLIC_USER_API_URL=http://localhost:3000/api/v1
 
 # admin-api の URL
-NEXT_PUBLIC_ADMIN_API_URL=http://localhost:8080/api/v1/admin
+NEXT_PUBLIC_ADMIN_API_URL=http://localhost:8081/api/v1/admin
 ```
 
 ### ステップ 3: 開発サーバーを起動
@@ -537,7 +537,7 @@ adb shell am force-stop com.junc.junc_hamburger_club
 
 # ポートを転送（エミュレーターから localhost API に接続する場合）
 adb reverse tcp:3000 tcp:3000
-adb reverse tcp:8080 tcp:8080
+adb reverse tcp:8081 tcp:8080
 ```
 
 ### Android 16 でのオートフィル無効化
@@ -591,7 +591,7 @@ docker info
 
 # ポートが使用中の場合
 lsof -i :3000   # user-api のポート
-lsof -i :8080   # admin-api のポート
+lsof -i :8081   # admin-api のポート
 lsof -i :3306   # MySQL のポート
 
 # 既存のコンテナを削除して再起動
@@ -670,7 +670,7 @@ adb start-server
 
 # 方法2: adb reverse でポートを転送
 adb reverse tcp:3000 tcp:3000
-adb reverse tcp:8080 tcp:8080
+adb reverse tcp:8081 tcp:8080
 ```
 
 ---
@@ -681,7 +681,7 @@ adb reverse tcp:8080 tcp:8080
 □ Docker Desktop が起動している
 □ バックエンド: cd junc_hamburger_club_backend && docker compose up -d --build
 □   → curl http://localhost:3000/health で {"status":"ok","service":"junc-user-api"} を確認
-□   → curl http://localhost:8080/health で {"status":"ok","service":"junc-admin-api"} を確認
+□   → curl http://localhost:8081/health で {"status":"ok","service":"junc-admin-api"} を確認
 □ Webフロント: cd junc_hamburger_club_webfront && npm install && npm run dev
 □   → http://localhost:3001 でトップページを確認
 □ Flutter: cd junc_hamburger_club_mobile && flutter pub get && flutter run

@@ -10,7 +10,7 @@ AI コーディングエージェント向けのプロジェクトコンテキ�
 |---|---|---|
 | `junc_hamburger_club_mobile/` | Flutter (Riverpod 3.x / MVVM / GoRouter 14) | — |
 | `junc_hamburger_club_backend/user-api/` | TypeScript + Express | 3100 → 3000 |
-| `junc_hamburger_club_backend/admin-api/` | Go + Gin | 8080 → 8080 |
+| `junc_hamburger_club_backend/admin-api/` | Go + Gin | 8081 → 8080 |
 | `junc_hamburger_club_backend/` (MySQL 8.0) | 両 API が共有する唯一の DB | 3307 → 3306 |
 | `junc_hamburger_club_webfront/` | Next.js 15 (App Router) + Tailwind 3 | 3002 |
 

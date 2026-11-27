@@ -29,7 +29,7 @@ Flutter モバイルアプリ・TypeScript/Go バックエンド・Next.js Web �
 |---|---|---|
 | **Flutter モバイルアプリ** | ユーザー向けオーダーアプリ (iOS/Android) | — |
 | **TypeScript User API** | ユーザー向け REST API (Express.js) | 3100 (host) → 3000 (container) |
-| **Go Admin API** | 管理者向け REST API (Gin) | 8080 |
+| **Go Admin API** | 管理者向け REST API (Gin) | 8081 |
 | **MySQL** | データベース | 3307 (host) → 3306 (container) |
 | **Next.js Web** | 公開サイト + 管理画面 | 3002 |
 
@@ -271,7 +271,7 @@ docker compose ps
 NAME             STATUS                    PORTS
 junc_mysql       Up (healthy)              0.0.0.0:3307->3306/tcp
 junc_user_api    Up                        0.0.0.0:3100->3000/tcp
-junc_admin_api   Up                        0.0.0.0:8080->8080/tcp
+junc_admin_api   Up                        0.0.0.0:8081->8080/tcp
 ```
 
 ### 6-3. 動作確認
@@ -282,7 +282,7 @@ curl http://localhost:3100/health
 # => {"status":"ok","service":"junc-user-api"}
 
 # Admin API ヘルスチェック
-curl http://localhost:8080/health
+curl http://localhost:8081/health
 # => {"status":"ok","service":"junc-admin-api"}
 
 # バーガー一覧 (認証不要)
@@ -373,7 +373,7 @@ cp .env.local.example .env.local
 
 ```dotenv
 NEXT_PUBLIC_USER_API_URL=http://localhost:3100/api/v1
-NEXT_PUBLIC_ADMIN_API_URL=http://localhost:8080/api/v1/admin
+NEXT_PUBLIC_ADMIN_API_URL=http://localhost:8081/api/v1/admin
 ```
 
 ### 7-3. 開発サーバー起動
@@ -802,7 +802,7 @@ Android エミュレーターから `localhost` はエミュレーター自身�
 // API_HOST を --dart-define で切り替え可能。デフォルトは 10.0.2.2 (Android エミュレーター用)
 static const String _host = String.fromEnvironment('API_HOST', defaultValue: '10.0.2.2');
 static const String baseUrl = 'http://$_host:3100';
-static const String adminBaseUrl = 'http://$_host:8080';
+static const String adminBaseUrl = 'http://$_host:8081';
 ```
 
 起動コマンド:
@@ -1064,7 +1064,7 @@ Android エミュレーターから localhost にアクセスするには `10.0.
 ```bash
 # 一時的な確認
 adb reverse tcp:3100 tcp:3100
-adb reverse tcp:8080 tcp:8080
+adb reverse tcp:8081 tcp:8080
 
 # これで localhost が使えるようになる
 flutter run -d emulator-5556

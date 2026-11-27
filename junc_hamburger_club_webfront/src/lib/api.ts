@@ -1,5 +1,5 @@
 const USER_API = process.env.NEXT_PUBLIC_USER_API_URL ?? 'http://localhost:3000/api/v1'
-const ADMIN_API = process.env.NEXT_PUBLIC_ADMIN_API_URL ?? 'http://localhost:8080/api/v1/admin'
+const ADMIN_API = process.env.NEXT_PUBLIC_ADMIN_API_URL ?? 'http://localhost:8081/api/v1/admin'
 
 // 統一エラーレスポンス形式 ({success:false, error:{code,message,details}}) に対応。
 // error 文字列 (旧形式) のフォールバックは無い (破壊的変更)。
