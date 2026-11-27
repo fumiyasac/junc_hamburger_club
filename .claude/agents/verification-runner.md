@@ -52,9 +52,25 @@ docker run --rm -v "$PWD":/app -w /app golang:1.26-alpine \
 ```bash
 docker run --rm -v "$PWD":/app -w /app \
   -e NEXT_PUBLIC_USER_API_URL=http://localhost:3100/api/v1 \
-  -e NEXT_PUBLIC_ADMIN_API_URL=http://localhost:8080/api/v1/admin \
-  node:22-alpine sh -c "npm ci --silent && npx tsc --noEmit && npm run build"
+  -e NEXT_PUBLIC_ADMIN_API_URL=http://localhost:8081/api/v1/admin \
+  node:22-alpine sh -c "npm ci --silent && npm run lint && npx tsc --noEmit && npm test && npm run build"
 ```
+
+**webfront E2E (バックエンド起動時のみ)**: `/health` 両方応答がある場合のみ実行:
+```bash
+if curl -sf http://localhost:3100/health && curl -sf http://localhost:8081/health; then
+  cd junc_hamburger_club_webfront
+  nohup npm run start > /tmp/next.log 2>&1 &
+  until curl -sf http://localhost:3002/; do sleep 2; done
+  docker run --rm --network host -v "$PWD":/work -w /work \
+    -e E2E_BASE_URL=http://localhost:3002 \
+    -e E2E_USER_API_URL=http://localhost:3100/api/v1 \
+    -e E2E_ADMIN_API_URL=http://localhost:8081/api/v1/admin \
+    -e E2E_ADMIN_EMAIL=admin@junc-hamburger.com -e E2E_ADMIN_PASSWORD_PLAIN=admin1234 \
+    mcr.microsoft.com/playwright:v1.65.1-jammy npx playwright test
+fi
+```
+バックエンド未起動なら「`./scripts/dev-up.sh` を実行してください」とだけ出してスキップ (**自分で起動しない**)。
 
 **mobile** (`junc_hamburger_club_mobile/`):
 ```bash

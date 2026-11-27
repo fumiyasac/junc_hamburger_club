@@ -177,14 +177,14 @@ export default function AdminOptionsPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {g.options.map((o) => (
-                      <tr key={o.id} className="hover:bg-gray-50">
+                      <tr key={o.id} data-testid={`option-row-${o.id}`} className="hover:bg-gray-50">
                         <td className="px-3 py-2">{o.name}</td>
                         <td className="px-3 py-2 text-right">
                           {o.priceDelta > 0 ? `+${formatPrice(o.priceDelta)}` : '±0'}
                         </td>
                         <td className="px-3 py-2 text-center text-gray-500">{o.displayOrder}</td>
                         <td className="px-3 py-2 text-center">
-                          <span className={`badge ${o.isAvailable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          <span data-testid={`option-availability-${o.id}`} className={`badge ${o.isAvailable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                             {o.isAvailable ? '販売中' : '売切'}
                           </span>
                         </td>
@@ -199,6 +199,7 @@ export default function AdminOptionsPage() {
                             編集
                           </button>
                           <button
+                            data-testid={`toggle-availability-${o.id}`}
                             onClick={() => toggleOption(o.id)}
                             className="px-2 py-1 text-xs rounded-lg bg-gray-100 hover:bg-gray-200 font-medium"
                           >

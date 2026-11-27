@@ -32,7 +32,7 @@ graph TB
 
     subgraph Docker["🐳 Backendサーバー（Docker Compose）"]
         UA["user-api<br/>TypeScript + Express<br/>Port 3000"]
-        AA["admin-api<br/>Go + Gin<br/>Port 8080"]
+        AA["admin-api<br/>Go + Gin<br/>Port 8081"]
         DB[("MySQL 8.0<br/>Port 3306")]
         UA --> DB
         AA --> DB
@@ -374,7 +374,7 @@ sequenceDiagram
 
 ### admin-api（Go + Gin）
 
-管理者向けAPIです。ポート **8080** で動作します。
+管理者向けAPIです。ポート **8081** で動作します。
 
 ```
 admin-api/
@@ -401,7 +401,7 @@ graph TB
     DC["docker-compose.yml"]
     DC --> MySQL[("mysql<br/>Port 3306<br/>healthcheck あり")]
     DC --> UA["user-api<br/>Port 3000"]
-    DC --> AA["admin-api<br/>Port 8080"]
+    DC --> AA["admin-api<br/>Port 8081"]
     UA -- "depends_on<br/>condition: healthy" --> MySQL
     AA -- "depends_on<br/>condition: healthy" --> MySQL
 ```
