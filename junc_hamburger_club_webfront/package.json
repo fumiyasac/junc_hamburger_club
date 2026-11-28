@@ -13,7 +13,7 @@
     "e2e:ui": "playwright test --ui"
   },
   "dependencies": {
-    "autoprefixer": "^10.6.2",
+    "autoprefixer": "^10.7.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.441.0",
     "next": "15.3.2",
